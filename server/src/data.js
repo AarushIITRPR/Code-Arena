@@ -1,0 +1,65 @@
+export const dashboardData = {
+  roadmap: [
+    { id: 1, stage: 'DSA basics', completed: 8, total: 12 },
+    { id: 2, stage: 'Core CS subjects', completed: 5, total: 10 },
+    { id: 3, stage: 'Resume and projects', completed: 6, total: 8 },
+    { id: 4, stage: 'Mock interviews', completed: 1, total: 5 },
+  ],
+  practice: [
+    {
+      id: 1,
+      title: 'Two Sum',
+      topic: 'Arrays',
+      difficulty: 'Easy',
+      status: 'Solved',
+      confidence: 5,
+    },
+    {
+      id: 2,
+      title: 'Longest Substring Without Repeating Characters',
+      topic: 'Strings',
+      difficulty: 'Medium',
+      status: 'Revise',
+      confidence: 2,
+    },
+    {
+      id: 3,
+      title: 'Binary Tree Level Order Traversal',
+      topic: 'Trees',
+      difficulty: 'Medium',
+      status: 'Revise',
+      confidence: 3,
+    },
+    {
+      id: 4,
+      title: 'Merge Intervals',
+      topic: 'Arrays',
+      difficulty: 'Medium',
+      status: 'Solved',
+      confidence: 4,
+    },
+  ],
+  applications: [
+    {
+      id: 1,
+      company: 'Turing Labs',
+      role: 'Frontend Intern',
+      deadline: '2026-07-02',
+      status: 'Applied',
+    },
+    {
+      id: 2,
+      company: 'Northstar Systems',
+      role: 'Software Engineer Intern',
+      deadline: '2026-07-08',
+      status: 'OA',
+    },
+    {
+      id: 3,
+      company: 'ByteCraft',
+      role: 'Full Stack Intern',
+      deadline: '2026-07-15',
+      status: 'Wishlist',
+    },
+  ],
+}
