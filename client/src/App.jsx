@@ -15,6 +15,11 @@ import './App.css'
 const DEFAULT_HANDLE = localStorage.getItem('codearena:handle') || 'tourist'
 
 const VIEW_OPTIONS = ['inbox', 'discovery', 'insights', 'revision']
+const VIEW_ALIASES = {
+  analytics: 'insights',
+  profile: 'insights',
+  today: 'inbox',
+}
 const STATUS_OPTIONS = ['Planned', 'Attempted', 'Solved', 'Revise']
 const QUEUE_OPTIONS = ['Today', 'Revision', 'Weak Topic', 'Later']
 const MISTAKE_OPTIONS = [
@@ -95,7 +100,8 @@ function getStatusClass(status) {
 
 function getInitialView() {
   const hashView = window.location.hash.replace('#', '')
-  return VIEW_OPTIONS.includes(hashView) ? hashView : 'inbox'
+  const normalizedView = VIEW_ALIASES[hashView] ?? hashView
+  return VIEW_OPTIONS.includes(normalizedView) ? normalizedView : 'inbox'
 }
 
 function getVisiblePages(currentPage, totalPages) {
@@ -404,6 +410,12 @@ function App() {
       }))
       .slice(0, 8)
   }, [problemData, tagEntries, trackedExternalIds])
+  const activeViewLabel = {
+    inbox: 'Practice Inbox',
+    discovery: 'Problem Discovery',
+    insights: 'Profile Insights',
+    revision: 'Revision Log',
+  }[activeView]
 
   const syncAction = (
     <form
@@ -437,7 +449,7 @@ function App() {
           <span>C</span>
           <div>
             <strong>CodeArena</strong>
-            <em>Codeforces prep</em>
+            <em>placement vault</em>
           </div>
         </div>
 
@@ -447,7 +459,7 @@ function App() {
             onClick={() => navigateToView('inbox')}
             type="button"
           >
-            <span>Practice Inbox</span>
+            <span>01 Practice Inbox</span>
             <strong>{trackedSummary.inbox}</strong>
           </button>
           <button
@@ -455,7 +467,7 @@ function App() {
             onClick={() => navigateToView('discovery')}
             type="button"
           >
-            <span>Problem Discovery</span>
+            <span>02 Problem Discovery</span>
             <strong>{problemData?.count ?? 0}</strong>
           </button>
           <button
@@ -463,7 +475,7 @@ function App() {
             onClick={() => navigateToView('insights')}
             type="button"
           >
-            <span>Profile Insights</span>
+            <span>03 Profile Insights</span>
             <strong>{tagEntries.length}</strong>
           </button>
           <button
@@ -471,7 +483,7 @@ function App() {
             onClick={() => navigateToView('revision')}
             type="button"
           >
-            <span>Revision Log</span>
+            <span>04 Revision Log</span>
             <strong>{trackedSummary.revision}</strong>
           </button>
         </nav>
@@ -1046,6 +1058,92 @@ function App() {
           </section>
         )}
       </section>
+
+      <aside className="knowledge-rail" aria-label="CodeArena knowledge graph">
+        <section className="vault-panel">
+          <span className="rail-label">Current note</span>
+          <h2>{activeViewLabel}</h2>
+          <InsightRow label="Handle" value={activeHandle} />
+          <InsightRow
+            label="Rating"
+            value={dashboard?.profile?.rating ?? 'unrated'}
+          />
+          <InsightRow label="Tracked" value={trackedSummary.total} />
+        </section>
+
+        <section className="vault-panel">
+          <div className="rail-heading">
+            <span>Local graph</span>
+            <strong>{tagEntries.length}</strong>
+          </div>
+          <div className="graph-map" aria-label="Topic graph preview">
+            <span className="graph-node graph-node-main">CF</span>
+            {tagEntries.slice(0, 7).map(([tag], index) => (
+              <span className={`graph-node graph-node-${index + 1}`} key={tag}>
+                {tag.slice(0, 2)}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section className="vault-panel">
+          <div className="rail-heading">
+            <span>Linked topics</span>
+            <strong>{tagEntries.length}</strong>
+          </div>
+          <div className="topic-stack">
+            {tagEntries.slice(0, 6).map(([tag, count]) => (
+              <TopicMeter
+                count={count}
+                key={tag}
+                label={tag}
+                maxCount={tagEntries[0]?.[1] || 1}
+              />
+            ))}
+            {tagEntries.length === 0 && (
+              <EmptyState body="Sync a handle first." title="No topic links" />
+            )}
+          </div>
+        </section>
+
+        <section className="vault-panel">
+          <div className="rail-heading">
+            <span>Backlinks</span>
+            <strong>{revisionProblems.length + recommendedProblems.length}</strong>
+          </div>
+          <div className="suggestion-stack">
+            {revisionProblems.slice(0, 3).map((problem) => (
+              <button
+                disabled={savingId === problem.id}
+                key={problem.id}
+                onClick={() => navigateToView('revision')}
+                type="button"
+              >
+                <span>
+                  <strong>{problem.title}</strong>
+                  <em>revision / {problem.mistakeType || 'unclassified'}</em>
+                </span>
+                <ChevronRight size={14} />
+              </button>
+            ))}
+            {revisionProblems.length === 0 &&
+              recommendedProblems.slice(0, 3).map((problem) => (
+                <button
+                  disabled={savingId === problem.externalId}
+                  key={problem.externalId}
+                  onClick={() => trackProblem(problem, 'Today')}
+                  type="button"
+                >
+                  <span>
+                    <strong>{problem.title}</strong>
+                    <em>{problem.rating ?? 'Unrated'} / suggested</em>
+                  </span>
+                  <Plus size={14} />
+                </button>
+              ))}
+          </div>
+        </section>
+      </aside>
     </main>
   )
 }
