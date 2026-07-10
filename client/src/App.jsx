@@ -898,15 +898,21 @@ function App() {
                         {problem.tags?.slice(0, 2).join(', ') || 'untagged'}
                       </p>
 
-                      <div className="problem-card-facts">
-                        <span>
-                          <strong>Source</strong>
-                          {problem.platform}
-                        </span>
-                        <span>
-                          <strong>Index</strong>
-                          {problem.problemIndex}
-                        </span>
+                      <div className="problem-properties">
+                        <div>
+                          <span>Rating</span>
+                          <strong>{problem.rating ?? 'Unrated'}</strong>
+                        </div>
+                        <div>
+                          <span>Contest</span>
+                          <strong>{problem.contestId}</strong>
+                        </div>
+                        <div>
+                          <span>Tags</span>
+                          <strong>
+                            {problem.tags?.slice(0, 2).join(', ') || 'untagged'}
+                          </strong>
+                        </div>
                       </div>
 
                       <div className="tags-inline card-tags">
