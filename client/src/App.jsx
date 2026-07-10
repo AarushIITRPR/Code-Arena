@@ -38,7 +38,7 @@ const MISTAKE_OPTIONS = [
   'Could not derive approach',
 ]
 const CHART_COLORS = ['#111111', '#57534e', '#a8a29e', '#d6d3d1']
-const PROBLEM_PAGE_SIZE = 40
+const PROBLEM_PAGE_SIZE = 39
 const CODEFORCES_TAG_OPTIONS = [
   'implementation',
   'math',
@@ -214,11 +214,10 @@ function ChartTooltip({ active, payload, label }) {
   )
 }
 
-function ScreenHeader({ eyebrow, title, body, action }) {
+function ScreenHeader({ title, body, action }) {
   return (
     <header className="screen-header">
       <div>
-        <span className="breadcrumb">{eyebrow}</span>
         <h1>{title}</h1>
         {body && <p>{body}</p>}
       </div>
@@ -652,7 +651,6 @@ function App() {
             <ScreenHeader
               action={syncAction}
               body="Problems you have chosen to solve next. Revision items are moved out into their own log."
-              eyebrow="Workspace / Practice"
               title="Practice Inbox"
             />
 
@@ -753,7 +751,6 @@ function App() {
                 </button>
               }
               body="Search Codeforces by topic, rating, or title and send problems into your practice inbox."
-              eyebrow="Workspace / Discovery"
               title="Problem Discovery"
             />
 
@@ -1005,7 +1002,6 @@ function App() {
             <ScreenHeader
               action={syncAction}
               body="Animated charts from synced Codeforces activity: topic coverage, rating bands, and solved-vs-unsolved attempts."
-              eyebrow="Workspace / Analytics"
               title="Profile Insights"
             />
 
@@ -1244,7 +1240,6 @@ function App() {
           <section className="screen-view">
             <ScreenHeader
               body="Problems marked Revise or moved to the Revision queue, with mistake type, confidence, and notes."
-              eyebrow="Workspace / Revision"
               title="Revision Log"
             />
 
