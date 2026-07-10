@@ -10,6 +10,18 @@ import {
   Search,
   Trash2,
 } from 'lucide-react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import './App.css'
 
 const DEFAULT_HANDLE = localStorage.getItem('codearena:handle') || 'tourist'
@@ -25,6 +37,7 @@ const MISTAKE_OPTIONS = [
   'TLE / optimization',
   'Could not derive approach',
 ]
+const CHART_COLORS = ['#111111', '#57534e', '#a8a29e', '#d6d3d1']
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
@@ -128,17 +141,18 @@ function InsightRow({ label, value }) {
   )
 }
 
-function TopicMeter({ label, count, maxCount }) {
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+
   return (
-    <article className="topic-meter">
-      <div>
-        <span>{label}</span>
-        <strong>{count}</strong>
-      </div>
-      <i>
-        <b style={{ width: `${(count / maxCount) * 100}%` }} />
-      </i>
-    </article>
+    <div className="chart-tooltip">
+      <strong>{label || payload[0].name}</strong>
+      {payload.map((entry) => (
+        <span key={entry.name}>
+          {entry.name}: {formatNumber(entry.value)}
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -404,6 +418,53 @@ function App() {
       }))
       .slice(0, 8)
   }, [problemData, tagEntries, trackedExternalIds])
+
+  const topicChartData = useMemo(() => {
+    return tagEntries.slice(0, 8).map(([topic, solved]) => ({
+      topic,
+      solved,
+    }))
+  }, [tagEntries])
+
+  const ratingChartData = useMemo(() => {
+    return ratingEntries.map(([band, solved]) => ({
+      band,
+      solved,
+    }))
+  }, [ratingEntries])
+
+  const attemptChartData = useMemo(() => {
+    const solved = dashboardSummary?.solvedCount ?? 0
+    const unsolved = dashboardSummary?.unsolvedAttemptedCount ?? 0
+
+    return [
+      { name: 'Solved', value: solved },
+      { name: 'Unsolved attempted', value: unsolved },
+    ].filter((entry) => entry.value > 0)
+  }, [dashboardSummary])
+
+  const prepFlow = [
+    {
+      label: 'Submissions',
+      value: dashboardSummary?.totalSubmissions ?? 0,
+    },
+    {
+      label: 'Unique attempted',
+      value: dashboardSummary?.attemptedCount ?? 0,
+    },
+    {
+      label: 'Solved',
+      value: dashboardSummary?.solvedCount ?? 0,
+    },
+    {
+      label: 'In tracker',
+      value: trackedSummary.total,
+    },
+    {
+      label: 'Revision',
+      value: trackedSummary.revision,
+    },
+  ]
 
   const syncAction = (
     <form
@@ -843,7 +904,7 @@ function App() {
           <section className="screen-view">
             <ScreenHeader
               action={syncAction}
-              body="A compact profile summary built from your synced Codeforces submissions and rating history."
+              body="Animated charts from synced Codeforces activity: topic coverage, rating bands, and solved-vs-unsolved attempts."
               eyebrow="Workspace / Analytics"
               title="Profile Insights"
             />
@@ -867,11 +928,17 @@ function App() {
               </div>
             </section>
 
-            <div className="insights-grid">
-              <section className="profile-cardless">
-                <span className="rail-label">Profile</span>
+            <div className="analytics-grid">
+              <section className="analytics-card profile-cardless">
+                <div className="chart-heading">
+                  <span>Profile snapshot</span>
+                  <strong>{dashboard?.profile?.rating ?? 'Unrated'}</strong>
+                </div>
                 <h2>{dashboard?.profile?.handle ?? activeHandle}</h2>
-                <p>{dashboard?.profile?.rank ?? 'Codeforces user'}</p>
+                <p className="profile-rank">
+                  {dashboard?.profile?.rank ?? 'Codeforces user'}
+                </p>
+                <p>Synced {formatShortDate(dashboard?.syncedAt)} from Codeforces.</p>
                 <InsightRow
                   label="Max rating"
                   value={dashboard?.profile?.maxRating ?? '-'}
@@ -883,40 +950,93 @@ function App() {
                 <InsightRow label="Tracked solved" value={trackedSummary.solved} />
               </section>
 
-              <section className="rail-section">
-                <div className="rail-heading">
-                  <span>Topics</span>
-                  <strong>{tagEntries.length}</strong>
+              <section className="analytics-card analytics-card-wide">
+                <div className="chart-heading">
+                  <span>Topic-wise solved</span>
+                  <strong>{formatNumber(topicChartData.length)} topics</strong>
                 </div>
-                <div className="topic-stack">
-                  {tagEntries.map(([tag, count]) => (
-                    <TopicMeter
-                      count={count}
-                      key={tag}
-                      label={tag}
-                      maxCount={tagEntries[0]?.[1] || 1}
-                    />
-                  ))}
-                  {tagEntries.length === 0 && (
+                <div className="chart-frame">
+                  {topicChartData.length > 0 ? (
+                    <ResponsiveContainer height={290} width="100%">
+                      <BarChart
+                        data={topicChartData}
+                        layout="vertical"
+                        margin={{ bottom: 8, left: 8, right: 24, top: 8 }}
+                      >
+                        <CartesianGrid horizontal={false} stroke="#e7e5e4" />
+                        <XAxis
+                          allowDecimals={false}
+                          axisLine={false}
+                          tick={{ fill: '#78716c', fontSize: 11 }}
+                          tickLine={false}
+                          type="number"
+                        />
+                        <YAxis
+                          axisLine={false}
+                          dataKey="topic"
+                          tick={{ fill: '#78716c', fontSize: 11 }}
+                          tickLine={false}
+                          type="category"
+                          width={126}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={false} />
+                        <Bar
+                          animationDuration={900}
+                          dataKey="solved"
+                          fill="#111111"
+                          isAnimationActive
+                          name="Solved"
+                          radius={[0, 6, 6, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
                     <EmptyState body="Sync a handle first." title="No topic data" />
                   )}
                 </div>
               </section>
 
-              <section className="rail-section">
-                <div className="rail-heading">
-                  <span>Ratings</span>
-                  <strong>{ratingEntries.length}</strong>
+              <section className="analytics-card">
+                <div className="chart-heading">
+                  <span>Rating bands</span>
+                  <strong>{formatNumber(ratingChartData.length)} bands</strong>
                 </div>
-                <div className="rating-stack">
-                  {ratingEntries.map(([band, count]) => (
-                    <a href="#discovery" key={band}>
-                      <span>{band}</span>
-                      <strong>{count}</strong>
-                      <ChevronRight size={13} />
-                    </a>
-                  ))}
-                  {ratingEntries.length === 0 && (
+                <div className="chart-frame">
+                  {ratingChartData.length > 0 ? (
+                    <ResponsiveContainer height={270} width="100%">
+                      <BarChart
+                        data={ratingChartData}
+                        layout="vertical"
+                        margin={{ bottom: 8, left: 2, right: 24, top: 8 }}
+                      >
+                        <CartesianGrid horizontal={false} stroke="#e7e5e4" />
+                        <XAxis
+                          allowDecimals={false}
+                          axisLine={false}
+                          tick={{ fill: '#78716c', fontSize: 11 }}
+                          tickLine={false}
+                          type="number"
+                        />
+                        <YAxis
+                          axisLine={false}
+                          dataKey="band"
+                          tick={{ fill: '#78716c', fontSize: 11 }}
+                          tickLine={false}
+                          type="category"
+                          width={76}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={false} />
+                        <Bar
+                          animationDuration={900}
+                          dataKey="solved"
+                          fill="#57534e"
+                          isAnimationActive
+                          name="Solved"
+                          radius={[0, 6, 6, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
                     <EmptyState
                       body="Rated solves appear here."
                       title="No rating data"
@@ -925,28 +1045,95 @@ function App() {
                 </div>
               </section>
 
-              <section className="rail-section">
-                <div className="rail-heading">
-                  <span>Suggested from search</span>
-                  <strong>{recommendedProblems.length}</strong>
+              <section className="analytics-card">
+                <div className="chart-heading">
+                  <span>Attempts split</span>
+                  <strong>{formatNumber(dashboardSummary?.attemptedCount)}</strong>
+                </div>
+                <div className="donut-wrap">
+                  {attemptChartData.length > 0 ? (
+                    <>
+                      <ResponsiveContainer height={250} width="100%">
+                        <PieChart>
+                          <Tooltip content={<ChartTooltip />} />
+                          <Pie
+                            animationDuration={900}
+                            data={attemptChartData}
+                            dataKey="value"
+                            innerRadius={66}
+                            isAnimationActive
+                            nameKey="name"
+                            outerRadius={94}
+                            paddingAngle={3}
+                          >
+                            {attemptChartData.map((entry, index) => (
+                              <Cell
+                                fill={CHART_COLORS[index % CHART_COLORS.length]}
+                                key={entry.name}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="donut-center">
+                        <strong>{formatNumber(dashboardSummary?.solvedCount)}</strong>
+                        <span>solved</span>
+                      </div>
+                    </>
+                  ) : (
+                    <EmptyState
+                      body="Sync submissions to see attempt quality."
+                      title="No attempt data"
+                    />
+                  )}
+                </div>
+              </section>
+
+              <section className="analytics-card analytics-card-wide">
+                <div className="chart-heading">
+                  <span>Preparation flow</span>
+                  <strong>{dashboard?.profile?.handle ?? activeHandle}</strong>
+                </div>
+                <div className="prep-flow">
+                  {prepFlow.map((step, index) => (
+                    <div className="flow-step" key={step.label}>
+                      <span>{step.label}</span>
+                      <strong>{formatNumber(step.value)}</strong>
+                      {index < prepFlow.length - 1 && <ChevronRight size={16} />}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="analytics-card">
+                <div className="chart-heading">
+                  <span>Practice suggestions</span>
+                  <strong>{formatNumber(recommendedProblems.length)}</strong>
                 </div>
                 <div className="suggestion-stack">
-                  {recommendedProblems.map((problem) => (
-                    <button
-                      disabled={savingId === problem.externalId}
-                      key={problem.externalId}
-                      onClick={() => trackProblem(problem, 'Today')}
-                      type="button"
-                    >
-                      <span>
-                        <strong>{problem.title}</strong>
-                        <em>
-                          {problem.rating ?? 'Unrated'} / {problem.reason}
-                        </em>
-                      </span>
-                      <Plus size={14} />
-                    </button>
-                  ))}
+                  {recommendedProblems.length > 0 ? (
+                    recommendedProblems.map((problem) => (
+                      <button
+                        disabled={savingId === problem.externalId}
+                        key={problem.externalId}
+                        onClick={() => trackProblem(problem, 'Today')}
+                        type="button"
+                      >
+                        <span>
+                          <strong>{problem.title}</strong>
+                          <em>
+                            {problem.rating ?? 'Unrated'} / {problem.reason}
+                          </em>
+                        </span>
+                        <Plus size={14} />
+                      </button>
+                    ))
+                  ) : (
+                    <EmptyState
+                      body="Use Problem Discovery to generate targeted suggestions."
+                      title="No suggestions yet"
+                    />
+                  )}
                 </div>
               </section>
             </div>
