@@ -98,6 +98,18 @@ function getInitialView() {
   return VIEW_OPTIONS.includes(hashView) ? hashView : 'inbox'
 }
 
+function getVisiblePages(currentPage, totalPages) {
+  const pages = new Set([1, totalPages])
+
+  for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
+    if (page >= 1 && page <= totalPages) {
+      pages.add(page)
+    }
+  }
+
+  return [...pages].sort((firstPage, secondPage) => firstPage - secondPage)
+}
+
 function EmptyState({ title, body }) {
   return (
     <div className="empty-line">
@@ -159,6 +171,7 @@ function App() {
     minRating: '800',
     maxRating: '1600',
     limit: '40',
+    page: '1',
   })
   const [problemData, setProblemData] = useState(null)
   const [problemState, setProblemState] = useState({ loading: true, error: '' })
@@ -219,7 +232,7 @@ function App() {
 
     try {
       await apiRequest('/api/codeforces/problems/refresh', { method: 'POST' })
-      await loadProblems()
+      await loadProblems({ ...filters, page: '1' })
     } catch (error) {
       setProblemState({ loading: false, error: error.message })
     }
@@ -320,6 +333,15 @@ function App() {
     setActiveView(view)
   }
 
+  function goToProblemPage(page) {
+    const nextFilters = {
+      ...filters,
+      page: String(page),
+    }
+    setFilters(nextFilters)
+    loadProblems(nextFilters)
+  }
+
   const dashboardSummary = dashboard?.submissionSummary
   const tagEntries = useMemo(
     () => toEntries(dashboardSummary?.solvedByTag).slice(0, 10),
@@ -412,10 +434,10 @@ function App() {
     <main className="workspace-shell">
       <aside className="nav-rail" aria-label="CodeArena navigation">
         <div className="workspace-brand">
-          <span>CA</span>
+          <span>C</span>
           <div>
             <strong>CodeArena</strong>
-            <em>Placement prep</em>
+            <em>Codeforces prep</em>
           </div>
         </div>
 
@@ -455,9 +477,16 @@ function App() {
         </nav>
 
         <div className="rail-footer">
-          <span>Synced profile</span>
-          <strong>{activeHandle}</strong>
-          <em>{formatShortDate(dashboard?.syncedAt)}</em>
+          <div className="account-dot">
+            {(activeHandle || 'u').slice(0, 1).toUpperCase()}
+          </div>
+          <div>
+            <strong>{activeHandle}</strong>
+            <span>
+              {dashboard?.profile?.rating ?? 'unrated'} rating /{' '}
+              {formatShortDate(dashboard?.syncedAt)}
+            </span>
+          </div>
         </div>
       </aside>
 
@@ -586,7 +615,9 @@ function App() {
               className="search-line"
               onSubmit={(event) => {
                 event.preventDefault()
-                loadProblems(filters)
+                const nextFilters = { ...filters, page: '1' }
+                setFilters(nextFilters)
+                loadProblems(nextFilters)
               }}
             >
               <label>
@@ -596,6 +627,7 @@ function App() {
                     setFilters((currentFilters) => ({
                       ...currentFilters,
                       search: event.target.value,
+                      page: '1',
                     }))
                   }
                   placeholder="watermelon, 4-A, graphs"
@@ -609,6 +641,7 @@ function App() {
                     setFilters((currentFilters) => ({
                       ...currentFilters,
                       tag: event.target.value,
+                      page: '1',
                     }))
                   }
                   placeholder="dp"
@@ -623,6 +656,7 @@ function App() {
                     setFilters((currentFilters) => ({
                       ...currentFilters,
                       minRating: event.target.value,
+                      page: '1',
                     }))
                   }
                   value={filters.minRating}
@@ -636,10 +670,31 @@ function App() {
                     setFilters((currentFilters) => ({
                       ...currentFilters,
                       maxRating: event.target.value,
+                      page: '1',
                     }))
                   }
                   value={filters.maxRating}
                 />
+              </label>
+              <label>
+                <span>Rows</span>
+                <select
+                  onChange={(event) => {
+                    const nextFilters = {
+                      ...filters,
+                      limit: event.target.value,
+                      page: '1',
+                    }
+                    setFilters(nextFilters)
+                    loadProblems(nextFilters)
+                  }}
+                  value={filters.limit}
+                >
+                  <option value="20">20</option>
+                  <option value="40">40</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
               </label>
               <button className="solid-button" disabled={problemState.loading}>
                 {problemState.loading ? (
@@ -702,6 +757,56 @@ function App() {
                 />
               )}
             </div>
+
+            {problemData && (
+              <div className="pagination-bar">
+                <span>
+                  Showing {problemData.count} of{' '}
+                  {formatNumber(problemData.totalMatched)} matches
+                </span>
+                <div>
+                  <button
+                    className="ghost-button"
+                    disabled={problemState.loading || !problemData.hasPreviousPage}
+                    onClick={() => goToProblemPage(problemData.page - 1)}
+                    type="button"
+                  >
+                    Previous
+                  </button>
+                  <div className="page-list">
+                    {getVisiblePages(problemData.page, problemData.totalPages).map(
+                      (page, index, pages) => (
+                        <span className="page-cluster" key={page}>
+                          {index > 0 && page - pages[index - 1] > 1 && (
+                            <em>...</em>
+                          )}
+                          <button
+                            className={
+                              page === problemData.page
+                                ? 'page-button active'
+                                : 'page-button'
+                            }
+                            disabled={problemState.loading}
+                            onClick={() => goToProblemPage(page)}
+                            type="button"
+                          >
+                            {page}
+                          </button>
+                        </span>
+                      ),
+                    )}
+                  </div>
+                  <button
+                    className="ghost-button"
+                    disabled={problemState.loading || !problemData.hasNextPage}
+                    onClick={() => goToProblemPage(problemData.page + 1)}
+                    type="button"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

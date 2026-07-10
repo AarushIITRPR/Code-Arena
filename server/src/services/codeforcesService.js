@@ -107,6 +107,7 @@ function normalizeFilters(filters) {
   const minRating = parseInteger(filters.minRating)
   const maxRating = parseInteger(filters.maxRating)
   const requestedLimit = parseInteger(filters.limit)
+  const requestedPage = parseInteger(filters.page)
 
   return {
     search: typeof filters.search === 'string' ? filters.search.trim() : '',
@@ -114,6 +115,7 @@ function normalizeFilters(filters) {
     minRating,
     maxRating,
     limit: Math.min(Math.max(requestedLimit ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
+    page: Math.max(requestedPage ?? 1, 1),
   }
 }
 
@@ -332,14 +334,17 @@ export async function getCodeforcesProblems(filters = {}) {
   await ensureProblemCache()
 
   const query = buildProblemCacheQuery(normalizedFilters)
+  const skip = (normalizedFilters.page - 1) * normalizedFilters.limit
   const [cachedMetadata, totalMatched, cachedProblems] = await Promise.all([
     CodeforcesProblemCache.findOne().sort({ syncedAt: -1 }).lean(),
     CodeforcesProblemCache.countDocuments(query),
     CodeforcesProblemCache.find(query)
       .sort({ rating: 1, externalId: 1 })
+      .skip(skip)
       .limit(normalizedFilters.limit)
       .lean(),
   ])
+  const totalPages = Math.max(Math.ceil(totalMatched / normalizedFilters.limit), 1)
 
   return {
     source: 'Codeforces',
@@ -348,6 +353,10 @@ export async function getCodeforcesProblems(filters = {}) {
       : null,
     count: cachedProblems.length,
     totalMatched,
+    page: normalizedFilters.page,
+    totalPages,
+    hasPreviousPage: normalizedFilters.page > 1,
+    hasNextPage: normalizedFilters.page < totalPages,
     filters: normalizedFilters,
     problems: cachedProblems.map(formatCachedProblem),
   }

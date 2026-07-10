@@ -453,7 +453,7 @@ DELETE /api/problems/:id
 
 Current Codeforces route behavior:
 
-- `/api/codeforces/problems` returns normalized `CodeforcesProblem` objects and supports `search`, `tag`, `minRating`, `maxRating`, and `limit`.
+- `/api/codeforces/problems` returns paginated normalized `CodeforcesProblem` objects and supports `search`, `tag`, `minRating`, `maxRating`, `limit`, and `page`.
 - `/api/codeforces/problems/refresh` refreshes the MongoDB-backed Codeforces problem cache.
 - `/api/codeforces/dashboard/:handle` returns a cached user snapshot when available.
 - `/api/codeforces/dashboard/:handle/refresh` fetches fresh Codeforces profile, submissions, and rating data, then stores a new snapshot.
