@@ -1,0 +1,65 @@
+@media (max-width: 1100px) {
+  .main-feed { padding-inline: 34px; }
+  .search-line { grid-template-columns: minmax(220px, 2fr) minmax(140px, 1fr) 72px 72px auto; gap: 16px; }
+  .problem-index { column-gap: 28px; }
+  .revision-row { grid-template-columns: 1fr 140px 86px minmax(190px, 0.8fr) 28px; }
+  .insights-asymmetry { gap: 52px; grid-template-columns: 1.35fr 0.72fr; }
+}
+
+@media (max-width: 820px) {
+  .workspace-shell { grid-template-columns: 1fr; }
+  .nav-rail { gap: 22px; grid-template-rows: auto auto; min-height: auto; padding: 20px 24px; position: static; }
+  .workspace-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .workspace-nav button { display: block; text-align: center; }
+  .workspace-nav button strong { display: block; margin-top: 2px; }
+  .workspace-nav button.active::before { bottom: -5px; left: 50%; top: auto; transform: translateX(-50%); width: 24px; }
+  .rail-footer { display: none; }
+  .main-feed { padding: 34px 24px 70px; }
+  .search-line { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .search-query, .tag-filter, .search-line .solid-button { grid-column: 1 / -1; }
+  .problem-index { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .task-row, .revision-row { grid-template-columns: 1fr; }
+  .check-button { margin-bottom: -8px; }
+  .page-narrative { gap: 26px; grid-template-columns: 1fr; }
+  .page-narrative > div { justify-items: start; text-align: left; }
+  .insights-asymmetry { gap: 74px; grid-template-columns: 1fr; }
+  .topics-chapter { max-width: 560px; }
+  .activity-atlas { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .delete-button { justify-self: start; margin: 0; }
+}
+
+@media (max-width: 520px) {
+  .nav-rail, .main-feed { padding: 16px; }
+  .workspace-brand strong { font-size: 24px; }
+  .workspace-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .screen-header { display: grid; gap: 25px; margin-bottom: 48px; }
+  .screen-header h1 { font-size: 39px; }
+  .sync-command { justify-self: start; }
+  .page-narrative { margin-bottom: 54px; }
+  .page-narrative > p { font-size: 31px; }
+  .page-narrative > p em { font-size: 37px; }
+  .search-line { grid-template-columns: 1fr; }
+  .search-line > * { grid-column: 1 / -1; }
+  .problem-index { grid-template-columns: 1fr; row-gap: 45px; }
+  .problem-results-title { align-items: flex-start; display: grid; gap: 6px; }
+  .pagination-bar { align-items: flex-start; display: grid; gap: 12px; }
+  .pagination-bar nav { flex-wrap: wrap; }
+  .profile-header { display: grid; gap: 24px; }
+  .profile-avatar { height: 60px; width: 60px; }
+  .profile-person h1 { font-size: 39px; }
+  .profile-sync { margin: 0; max-width: 260px; width: 100%; }
+  .profile-narrative { align-items: start; gap: 30px; grid-template-columns: 1fr; margin-top: 50px; }
+  .profile-narrative > p { font-size: 34px; }
+  .rating-readout { justify-items: start; text-align: left; }
+  .difficulty-chapter { margin-top: 70px; }
+  .chapter-heading { display: grid; gap: 18px; grid-template-columns: 1fr; }
+  .chapter-heading h2 { font-size: 31px; }
+  .chapter-heading .chapter-note { justify-self: start; text-align: left; }
+  .difficulty-spectrum { height: 320px; }
+  .insights-asymmetry { gap: 66px; margin-top: 70px; }
+  .activity-summary { align-items: flex-start; display: grid; }
+  .activity-summary span { margin: 0; }
+  .activity-atlas { column-gap: 28px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+

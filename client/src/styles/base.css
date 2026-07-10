@@ -1,0 +1,409 @@
+:root {
+  --canvas: #fbfaff;
+  --rail: #f2f0f8;
+  --paper: #fff;
+  --text: #1b1735;
+  --muted: #655e7f;
+  --faint: #948ca8;
+  --line: #e1dceb;
+  --accent: #635bff;
+  --rust: #a44e43;
+  --danger: #d84b3d;
+  --success: #168a68;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.workspace-shell {
+  background: var(--canvas);
+  color: var(--text);
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.nav-rail {
+  background: var(--rail);
+  display: grid;
+  gap: 50px;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  padding: 30px 22px 24px;
+  position: sticky;
+  top: 0;
+}
+
+.workspace-brand strong {
+  display: block;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 27px;
+  font-weight: 560;
+  line-height: 1;
+}
+
+.workspace-brand em {
+  color: var(--rust);
+  display: block;
+  font-size: 10px;
+  font-style: normal;
+  margin-top: 7px;
+}
+
+.workspace-nav {
+  align-content: start;
+  display: grid;
+  gap: 11px;
+}
+
+.workspace-nav button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #4d4667;
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+  min-height: 31px;
+  padding: 0;
+  position: relative;
+  text-align: left;
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+.workspace-nav button:hover,
+.workspace-nav button.active {
+  color: var(--accent);
+  transform: translateX(3px);
+}
+
+.workspace-nav button.active::before {
+  background: var(--accent);
+  content: "";
+  height: 2px;
+  left: -22px;
+  position: absolute;
+  top: 50%;
+  width: 13px;
+}
+
+.workspace-nav strong {
+  color: var(--rust);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-footer {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.account-dot {
+  align-items: center;
+  background: #e7e2fa;
+  border-radius: 50%;
+  color: var(--accent);
+  display: flex;
+  flex: 0 0 34px;
+  font-size: 12px;
+  height: 34px;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.account-dot img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.rail-footer strong,
+.rail-footer span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-footer strong {
+  color: #302a4b;
+  font-size: 12px;
+}
+
+.rail-footer span {
+  color: #817995;
+  font-size: 9px;
+  margin-top: 2px;
+  max-width: 145px;
+}
+
+.main-feed {
+  min-width: 0;
+  padding: 36px 52px 84px;
+}
+
+.screen-view {
+  margin: 0 auto;
+  max-width: 1080px;
+}
+
+.screen-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 32px;
+  justify-content: space-between;
+  margin-bottom: 58px;
+}
+
+.screen-header h1,
+.profile-person h1,
+.chapter-heading h2,
+.problem-results-title h2 {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-weight: 520;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.screen-header h1 {
+  font-size: 46px;
+  line-height: 1;
+}
+
+.screen-header p {
+  color: #625a7d;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 10px 0 0;
+  max-width: 530px;
+}
+
+.plain-action,
+.solid-button {
+  align-items: center;
+  border: 0;
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+}
+
+.plain-action {
+  background: transparent;
+  color: var(--accent);
+  min-height: 32px;
+  padding: 0;
+}
+
+.plain-action:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+.solid-button {
+  background: var(--accent);
+  border-radius: 3px;
+  color: white;
+  min-height: 42px;
+  padding: 0 17px;
+}
+
+.solid-button:hover:not(:disabled) {
+  background: #5149df;
+}
+
+.sync-command {
+  align-items: center;
+  border-bottom: 1px solid #4c446e;
+  display: flex;
+  gap: 5px;
+  padding-bottom: 5px;
+}
+
+.sync-command input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  min-height: 31px;
+  outline: 0;
+  width: 145px;
+}
+
+.page-narrative {
+  align-items: end;
+  display: grid;
+  gap: 48px;
+  grid-template-columns: 1.35fr 0.65fr;
+  margin-bottom: 68px;
+}
+
+.page-narrative::after {
+  background: var(--accent);
+  content: "";
+  grid-column: 1 / -1;
+  height: 2px;
+  margin-top: -8px;
+  width: 76px;
+}
+
+.page-narrative > p {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 35px;
+  font-weight: 450;
+  line-height: 1.12;
+  margin: 0;
+  max-width: 650px;
+}
+
+.page-narrative > p em {
+  color: var(--accent);
+  font-size: 42px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.page-narrative > div {
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+  text-align: right;
+}
+
+.page-narrative span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.page-narrative strong {
+  color: var(--rust);
+  font-size: 12px;
+}
+
+.task-list,
+.revision-list {
+  border-top: 1px solid #d8d2e7;
+  display: grid;
+}
+
+.task-row,
+.revision-row {
+  align-items: start;
+  border-bottom: 1px solid #e5e1ee;
+  display: grid;
+  gap: 24px;
+  padding: 24px 0;
+}
+
+.task-row {
+  grid-template-columns: 28px minmax(0, 1fr) 145px 145px;
+}
+
+.check-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid #aaa2bf;
+  border-radius: 50%;
+  color: transparent;
+  display: flex;
+  height: 22px;
+  justify-content: center;
+  margin-top: 3px;
+  padding: 0;
+  width: 22px;
+}
+
+.check-button.solved {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+}
+
+.task-copy a,
+.revision-main a {
+  align-items: center;
+  color: #272142;
+  display: inline-flex;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 20px;
+  font-weight: 560;
+  gap: 5px;
+  line-height: 1.15;
+  text-decoration: none;
+}
+
+.task-copy > span,
+.revision-main > div > span {
+  color: var(--rust);
+  display: block;
+  font-size: 10px;
+  margin-top: 7px;
+}
+
+.line-field,
+.revision-notes {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.line-field > span,
+.revision-notes > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.line-field select,
+.revision-notes textarea {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #cfc8df;
+  border-radius: 0;
+  color: #332d4e;
+  outline: 0;
+}
+
+.line-field select {
+  min-height: 31px;
+  padding: 0 2px;
+}
+
+.empty-line {
+  display: grid;
+  gap: 6px;
+  padding: 46px 0;
+}
+
+.empty-line strong {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 23px;
+  font-weight: 540;
+}
+
+.empty-line span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.error-stack {
+  color: var(--danger);
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  margin: 0 auto 28px;
+  max-width: 1080px;
+}
+
