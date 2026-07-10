@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  BarChart3,
-  CheckCircle2,
+  Check,
+  ChevronRight,
   DatabaseZap,
   ExternalLink,
-  ListChecks,
   Loader2,
   Plus,
   RefreshCcw,
   Search,
-  Target,
   Trash2,
 } from 'lucide-react'
 import './App.css'
@@ -71,22 +69,17 @@ function toEntries(record = {}) {
 }
 
 function getRatingBand(entries) {
-  const numericEntries = entries
+  const bands = new Map()
+
+  entries
     .filter(([rating]) => rating !== 'unrated')
     .map(([rating, count]) => [Number(rating), count])
     .sort(([firstRating], [secondRating]) => firstRating - secondRating)
-
-  if (numericEntries.length === 0) {
-    return []
-  }
-
-  const bands = new Map()
-
-  numericEntries.forEach(([rating, count]) => {
-    const bandStart = Math.floor(rating / 200) * 200
-    const label = `${bandStart}-${bandStart + 199}`
-    bands.set(label, (bands.get(label) ?? 0) + count)
-  })
+    .forEach(([rating, count]) => {
+      const bandStart = Math.floor(rating / 200) * 200
+      const label = `${bandStart}-${bandStart + 199}`
+      bands.set(label, (bands.get(label) ?? 0) + count)
+    })
 
   return [...bands.entries()]
 }
@@ -99,12 +92,18 @@ function getStatusClass(status) {
   return status.toLowerCase().replaceAll(' ', '-')
 }
 
-function StatCard({ icon: Icon, label, value, helper }) {
+function EmptyState({ title, body }) {
   return (
-    <article className="stat-card">
-      <div className="stat-card__icon">
-        <Icon size={18} />
-      </div>
+    <div className="empty-state">
+      <strong>{title}</strong>
+      <p>{body}</p>
+    </div>
+  )
+}
+
+function Metric({ label, value, helper }) {
+  return (
+    <article className="metric">
       <span>{label}</span>
       <strong>{value}</strong>
       <p>{helper}</p>
@@ -112,11 +111,14 @@ function StatCard({ icon: Icon, label, value, helper }) {
   )
 }
 
-function EmptyState({ title, body }) {
+function SectionHeader({ eyebrow, title, action }) {
   return (
-    <div className="empty-state">
-      <strong>{title}</strong>
-      <p>{body}</p>
+    <div className="section-header">
+      <div>
+        <p>{eyebrow}</p>
+        <h2>{title}</h2>
+      </div>
+      {action}
     </div>
   )
 }
@@ -285,7 +287,7 @@ function App() {
 
   const dashboardSummary = dashboard?.submissionSummary
   const tagEntries = useMemo(
-    () => toEntries(dashboardSummary?.solvedByTag).slice(0, 8),
+    () => toEntries(dashboardSummary?.solvedByTag).slice(0, 9),
     [dashboardSummary],
   )
   const ratingEntries = useMemo(
@@ -325,71 +327,69 @@ function App() {
       .map((problem) => ({
         ...problem,
         reason: solvedTags.has(getProblemTopic(problem))
-          ? 'Build consistency'
-          : 'Broaden coverage',
+          ? 'same topic depth'
+          : 'coverage gap',
       }))
-      .slice(0, 6)
+      .slice(0, 5)
   }, [problemData, tagEntries, trackedExternalIds])
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar" aria-label="CodeArena navigation">
-        <div className="brand-lockup">
+    <main className="codearena-shell">
+      <aside className="side-panel" aria-label="CodeArena navigation">
+        <div className="brand-row">
           <div className="brand-mark">CA</div>
           <div>
-            <p>CodeArena</p>
-            <span>Placement prep workspace</span>
+            <strong>CodeArena</strong>
+            <span>Practice OS</span>
           </div>
         </div>
 
-        <nav className="side-nav">
+        <nav className="main-nav">
           <a href="#overview">Overview</a>
           <a href="#discovery">Discovery</a>
           <a href="#tracker">Tracker</a>
           <a href="#analytics">Analytics</a>
         </nav>
 
-        <section className="sync-card" aria-label="Current Codeforces sync">
-          <span>Codeforces handle</span>
-          <strong>{activeHandle || 'Not selected'}</strong>
-          <p>
-            {dashboard?.syncedAt
-              ? `Last sync ${formatShortDate(dashboard.syncedAt)}`
-              : 'Waiting for first sync'}
-          </p>
-        </section>
+        <div className="sync-panel">
+          <span>Connected handle</span>
+          <strong>{activeHandle || '-'}</strong>
+          <p>{formatShortDate(dashboard?.syncedAt)}</p>
+        </div>
       </aside>
 
-      <section className="workspace">
-        <header className="topbar" id="overview">
+      <section className="workbench">
+        <header className="workspace-header" id="overview">
           <div>
-            <p className="eyebrow">CodeArena V1</p>
-            <h1>Practice planning from real Codeforces activity.</h1>
+            <p className="kicker">Codeforces workspace</p>
+            <h1>Placement practice</h1>
+            <p>
+              Search problems, sync submissions, and keep a compact revision log
+              from one screen.
+            </p>
           </div>
 
           <form
-            className="handle-form"
+            className="handle-command"
             onSubmit={(event) => {
               event.preventDefault()
               loadDashboard(handleInput, true)
             }}
           >
-            <input
-              aria-label="Codeforces handle"
-              onChange={(event) => setHandleInput(event.target.value)}
-              placeholder="Codeforces handle"
-              value={handleInput}
-            />
-            <button
-              className="button button--primary"
-              disabled={dashboardState.loading}
-              title="Refresh profile"
-              type="submit"
-            >
+            <label>
+              <span>Handle</span>
+              <input
+                aria-label="Codeforces handle"
+                onChange={(event) => setHandleInput(event.target.value)}
+                placeholder="tourist"
+                value={handleInput}
+              />
+            </label>
+            <button className="button dark" disabled={dashboardState.loading}>
               {dashboardState.loading ? (
-                <Loader2 className="spin" size={17} />
+                <Loader2 className="spin" size={16} />
               ) : (
-                <RefreshCcw size={17} />
+                <RefreshCcw size={16} />
               )}
               Sync
             </button>
@@ -397,64 +397,58 @@ function App() {
         </header>
 
         {dashboardState.error && (
-          <div className="inline-error">{dashboardState.error}</div>
+          <div className="error-line">{dashboardState.error}</div>
         )}
 
-        <section className="stat-grid" aria-label="Practice snapshot">
-          <StatCard
-            helper="Unique accepted problems from recent submissions"
-            icon={CheckCircle2}
+        <section className="metric-strip" aria-label="Practice summary">
+          <Metric
+            helper="Accepted in synced submissions"
             label="Solved"
             value={formatNumber(dashboardSummary?.solvedCount)}
           />
-          <StatCard
-            helper="Problems touched at least once"
-            icon={Target}
+          <Metric
+            helper="Unique problems attempted"
             label="Attempted"
             value={formatNumber(dashboardSummary?.attemptedCount)}
           />
-          <StatCard
-            helper="Tracked problems waiting in your plan"
-            icon={ListChecks}
-            label="Queue"
+          <Metric
+            helper={`${trackedSummary.today} today / ${trackedSummary.revision} revision`}
+            label="Tracked"
             value={formatNumber(trackedSummary.total)}
           />
-          <StatCard
-            helper="Current Codeforces rating"
-            icon={BarChart3}
+          <Metric
+            helper={dashboard?.profile?.rank ?? 'Codeforces profile'}
             label="Rating"
             value={dashboard?.profile?.rating ?? 'Unrated'}
           />
         </section>
 
-        <section className="content-grid">
-          <section className="panel panel--large" id="analytics">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Analytics</p>
-                <h2>Topic-wise solved distribution</h2>
-              </div>
-              <span className="meta-pill">
-                {dashboard?.fromCache ? 'Cached' : 'Fresh'} snapshot
-              </span>
-            </div>
+        <div className="upper-grid" id="analytics">
+          <section className="module topic-module">
+            <SectionHeader
+              action={
+                <span className="quiet-chip">
+                  {dashboard?.fromCache ? 'cached' : 'fresh'} snapshot
+                </span>
+              }
+              eyebrow="Analytics"
+              title="Solved topics"
+            />
 
             {dashboardState.loading ? (
-              <EmptyState title="Loading profile" body="Fetching activity data." />
+              <EmptyState body="Fetching activity data." title="Loading profile" />
             ) : tagEntries.length > 0 ? (
-              <div className="bar-list">
+              <div className="topic-table">
                 {tagEntries.map(([tag, count]) => {
                   const maxCount = tagEntries[0]?.[1] || 1
 
                   return (
-                    <article className="bar-row" key={tag}>
+                    <article className="topic-row" key={tag}>
+                      <span>{tag}</span>
                       <div>
-                        <strong>{tag}</strong>
-                        <span>{count} solved</span>
+                        <i style={{ width: `${(count / maxCount) * 100}%` }} />
                       </div>
-                      <div className="bar-track">
-                        <span style={{ width: `${(count / maxCount) * 100}%` }} />
-                      </div>
+                      <strong>{count}</strong>
                     </article>
                   )
                 })}
@@ -467,16 +461,11 @@ function App() {
             )}
           </section>
 
-          <section className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Focus</p>
-                <h2>Rating bands</h2>
-              </div>
-            </div>
+          <aside className="module side-stack">
+            <SectionHeader eyebrow="Range" title="Rating bands" />
 
             {ratingEntries.length > 0 ? (
-              <div className="rating-band-list">
+              <div className="band-list">
                 {ratingEntries.map(([band, count]) => (
                   <article key={band}>
                     <span>{band}</span>
@@ -486,92 +475,16 @@ function App() {
               </div>
             ) : (
               <EmptyState
-                body="Rating-band charts appear after solving rated problems."
+                body="Rated solves will be grouped here."
                 title="No rated solves"
               />
             )}
-          </section>
-        </section>
+          </aside>
+        </div>
 
-        <section className="panel" id="discovery">
-          <div className="panel-heading panel-heading--stacked">
-            <div>
-              <p className="eyebrow">Problem Discovery</p>
-              <h2>Search the Codeforces problemset</h2>
-            </div>
-
-            <form
-              className="filter-bar"
-              onSubmit={(event) => {
-                event.preventDefault()
-                loadProblems(filters)
-              }}
-            >
-              <label>
-                <span>Search</span>
-                <input
-                  onChange={(event) =>
-                    setFilters((currentFilters) => ({
-                      ...currentFilters,
-                      search: event.target.value,
-                    }))
-                  }
-                  placeholder="watermelon, dp, 4-A"
-                  value={filters.search}
-                />
-              </label>
-              <label>
-                <span>Tag</span>
-                <input
-                  onChange={(event) =>
-                    setFilters((currentFilters) => ({
-                      ...currentFilters,
-                      tag: event.target.value,
-                    }))
-                  }
-                  placeholder="graphs"
-                  value={filters.tag}
-                />
-              </label>
-              <label>
-                <span>Min</span>
-                <input
-                  inputMode="numeric"
-                  onChange={(event) =>
-                    setFilters((currentFilters) => ({
-                      ...currentFilters,
-                      minRating: event.target.value,
-                    }))
-                  }
-                  value={filters.minRating}
-                />
-              </label>
-              <label>
-                <span>Max</span>
-                <input
-                  inputMode="numeric"
-                  onChange={(event) =>
-                    setFilters((currentFilters) => ({
-                      ...currentFilters,
-                      maxRating: event.target.value,
-                    }))
-                  }
-                  value={filters.maxRating}
-                />
-              </label>
-              <button
-                className="button button--primary"
-                disabled={problemState.loading}
-                title="Search problems"
-                type="submit"
-              >
-                {problemState.loading ? (
-                  <Loader2 className="spin" size={17} />
-                ) : (
-                  <Search size={17} />
-                )}
-                Search
-              </button>
+        <section className="module discovery-module" id="discovery">
+          <SectionHeader
+            action={
               <button
                 className="icon-button"
                 disabled={problemState.loading}
@@ -579,18 +492,87 @@ function App() {
                 title="Refresh Codeforces cache"
                 type="button"
               >
-                <DatabaseZap size={18} />
+                <DatabaseZap size={16} />
               </button>
-            </form>
-          </div>
+            }
+            eyebrow="Discovery"
+            title="Codeforces problemset"
+          />
 
-          {problemState.error && (
-            <div className="inline-error">{problemState.error}</div>
-          )}
+          <form
+            className="filter-toolbar"
+            onSubmit={(event) => {
+              event.preventDefault()
+              loadProblems(filters)
+            }}
+          >
+            <label className="search-field">
+              <span>Search</span>
+              <input
+                onChange={(event) =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    search: event.target.value,
+                  }))
+                }
+                placeholder="watermelon, dp, 4-A"
+                value={filters.search}
+              />
+            </label>
+            <label>
+              <span>Tag</span>
+              <input
+                onChange={(event) =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    tag: event.target.value,
+                  }))
+                }
+                placeholder="graphs"
+                value={filters.tag}
+              />
+            </label>
+            <label>
+              <span>Min</span>
+              <input
+                inputMode="numeric"
+                onChange={(event) =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    minRating: event.target.value,
+                  }))
+                }
+                value={filters.minRating}
+              />
+            </label>
+            <label>
+              <span>Max</span>
+              <input
+                inputMode="numeric"
+                onChange={(event) =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    maxRating: event.target.value,
+                  }))
+                }
+                value={filters.maxRating}
+              />
+            </label>
+            <button className="button light" disabled={problemState.loading}>
+              {problemState.loading ? (
+                <Loader2 className="spin" size={16} />
+              ) : (
+                <Search size={16} />
+              )}
+              Search
+            </button>
+          </form>
 
-          <div className="problem-layout">
-            <div className="problem-table">
-              <div className="table-head">
+          {problemState.error && <div className="error-line">{problemState.error}</div>}
+
+          <div className="split-pane">
+            <div className="data-table problem-table">
+              <div className="table-row table-head">
                 <span>Problem</span>
                 <span>Rating</span>
                 <span>Tags</span>
@@ -606,31 +588,33 @@ function App() {
                   const alreadyTracked = trackedExternalIds.has(problem.externalId)
 
                   return (
-                    <article className="problem-row" key={problem.externalId}>
+                    <article className="table-row problem-row" key={problem.externalId}>
                       <div>
                         <a href={problem.url} rel="noreferrer" target="_blank">
                           {problem.title}
-                          <ExternalLink size={14} />
+                          <ExternalLink size={13} />
                         </a>
                         <span>{problem.externalId}</span>
                       </div>
                       <strong>{problem.rating ?? 'Unrated'}</strong>
-                      <div className="tag-cluster">
+                      <div className="tag-line">
                         {(problem.tags ?? []).slice(0, 3).map((tag) => (
                           <span key={tag}>{tag}</span>
                         ))}
                       </div>
                       <button
-                        className="button button--ghost"
+                        className="row-action"
                         disabled={alreadyTracked || savingId === problem.externalId}
                         onClick={() => trackProblem(problem)}
                         title="Add to tracker"
                         type="button"
                       >
                         {savingId === problem.externalId ? (
-                          <Loader2 className="spin" size={16} />
+                          <Loader2 className="spin" size={15} />
+                        ) : alreadyTracked ? (
+                          <Check size={15} />
                         ) : (
-                          <Plus size={16} />
+                          <Plus size={15} />
                         )}
                         {alreadyTracked ? 'Tracked' : 'Track'}
                       </button>
@@ -646,39 +630,31 @@ function App() {
               )}
             </div>
 
-            <aside className="recommendation-box">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Next picks</p>
-                  <h2>Recommended from this search</h2>
-                </div>
-              </div>
-
-              <div className="mini-list">
+            <aside className="recommendation-panel">
+              <h3>Suggested from search</h3>
+              <div className="suggestion-list">
                 {recommendedProblems.map((problem) => (
-                  <article key={problem.externalId}>
-                    <div>
+                  <button
+                    className="suggestion-row"
+                    disabled={savingId === problem.externalId}
+                    key={problem.externalId}
+                    onClick={() => trackProblem(problem)}
+                    type="button"
+                  >
+                    <span>
                       <strong>{problem.title}</strong>
-                      <span>
-                        {problem.rating ?? 'Unrated'} - {problem.reason}
-                      </span>
-                    </div>
-                    <button
-                      className="icon-button"
-                      disabled={savingId === problem.externalId}
-                      onClick={() => trackProblem(problem)}
-                      title="Add recommended problem"
-                      type="button"
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </article>
+                      <em>
+                        {problem.rating ?? 'Unrated'} / {problem.reason}
+                      </em>
+                    </span>
+                    <ChevronRight size={15} />
+                  </button>
                 ))}
 
                 {recommendedProblems.length === 0 && (
                   <EmptyState
                     body="Search results that are not already tracked will appear here."
-                    title="No recommendations"
+                    title="No suggestions"
                   />
                 )}
               </div>
@@ -686,22 +662,20 @@ function App() {
           </div>
         </section>
 
-        <section className="panel" id="tracker">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Practice Tracker</p>
-              <h2>Revision queue and attempt log</h2>
-            </div>
-            <div className="tracker-summary">
-              <span>{trackedSummary.today} Today</span>
-              <span>{trackedSummary.revision} Revision</span>
-              <span>{trackedSummary.lowConfidence} Low confidence</span>
-            </div>
-          </div>
+        <section className="module tracker-module" id="tracker">
+          <SectionHeader
+            action={
+              <div className="tracker-counts">
+                <span>{trackedSummary.today} today</span>
+                <span>{trackedSummary.revision} revision</span>
+                <span>{trackedSummary.lowConfidence} low confidence</span>
+              </div>
+            }
+            eyebrow="Tracker"
+            title="Practice log"
+          />
 
-          {trackedState.error && (
-            <div className="inline-error">{trackedState.error}</div>
-          )}
+          {trackedState.error && <div className="error-line">{trackedState.error}</div>}
 
           <div className="tracker-list">
             {trackedState.loading && (
@@ -711,134 +685,133 @@ function App() {
             {!trackedState.loading &&
               trackedProblems.map((problem) => (
                 <article className="tracker-row" key={problem.id}>
-                  <div className="tracker-main">
-                    <div>
-                      <a href={problem.url} rel="noreferrer" target="_blank">
-                        {problem.title}
-                        <ExternalLink size={14} />
-                      </a>
-                      <span>
-                        {problem.externalId} - {problem.rating ?? 'Unrated'} -{' '}
-                        {getProblemTopic(problem)}
-                      </span>
-                    </div>
-                    <span className={`status-dot ${getStatusClass(problem.status)}`}>
-                      {problem.status}
+                  <div className="tracker-title">
+                    <a href={problem.url} rel="noreferrer" target="_blank">
+                      {problem.title}
+                      <ExternalLink size={13} />
+                    </a>
+                    <span>
+                      {problem.externalId} / {problem.rating ?? 'Unrated'} /{' '}
+                      {getProblemTopic(problem)}
                     </span>
                   </div>
 
-                  <div className="tracker-controls">
-                    <label>
-                      <span>Status</span>
-                      <select
-                        onChange={(event) =>
-                          updateTrackedProblem(problem.id, {
-                            status: event.target.value,
-                          })
-                        }
-                        value={problem.status}
-                      >
-                        {STATUS_OPTIONS.map((status) => (
-                          <option key={status}>{status}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>Queue</span>
-                      <select
-                        onChange={(event) =>
-                          updateTrackedProblem(problem.id, {
-                            queue: event.target.value,
-                          })
-                        }
-                        value={problem.queue}
-                      >
-                        {QUEUE_OPTIONS.map((queue) => (
-                          <option key={queue}>{queue}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>Confidence</span>
-                      <select
-                        onChange={(event) =>
-                          updateTrackedProblem(problem.id, {
-                            confidence: event.target.value
-                              ? Number(event.target.value)
-                              : null,
-                          })
-                        }
-                        value={problem.confidence ?? ''}
-                      >
-                        <option value="">-</option>
-                        {[1, 2, 3, 4, 5].map((score) => (
-                          <option key={score} value={score}>
-                            {score}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>Mistake</span>
-                      <select
-                        onChange={(event) =>
-                          updateTrackedProblem(problem.id, {
-                            mistakeType: event.target.value || null,
-                          })
-                        }
-                        value={problem.mistakeType ?? ''}
-                      >
-                        {MISTAKE_OPTIONS.map((mistake) => (
-                          <option key={mistake} value={mistake}>
-                            {mistake || '-'}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
+                  <span className={`status-pill ${getStatusClass(problem.status)}`}>
+                    {problem.status}
+                  </span>
 
-                  <div className="note-row">
-                    <textarea
-                      aria-label={`Notes for ${problem.title}`}
-                      onBlur={(event) =>
+                  <label>
+                    <span>Status</span>
+                    <select
+                      onChange={(event) =>
                         updateTrackedProblem(problem.id, {
-                          notes: event.target.value,
+                          status: event.target.value,
                         })
                       }
-                      onChange={(event) => {
-                        const value = event.target.value
-                        setTrackedProblems((currentProblems) =>
-                          currentProblems.map((currentProblem) =>
-                            currentProblem.id === problem.id
-                              ? { ...currentProblem, notes: value }
-                              : currentProblem,
-                          ),
-                        )
-                      }}
-                      placeholder="Mistake note, approach reminder, or revision cue"
-                      value={problem.notes ?? ''}
-                    />
-                    <button
-                      className="icon-button danger"
-                      disabled={savingId === problem.id}
-                      onClick={() => deleteTrackedProblem(problem.id)}
-                      title="Remove from tracker"
-                      type="button"
+                      value={problem.status}
                     >
-                      {savingId === problem.id ? (
-                        <Loader2 className="spin" size={16} />
-                      ) : (
-                        <Trash2 size={16} />
-                      )}
-                    </button>
-                  </div>
+                      {STATUS_OPTIONS.map((status) => (
+                        <option key={status}>{status}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Queue</span>
+                    <select
+                      onChange={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          queue: event.target.value,
+                        })
+                      }
+                      value={problem.queue}
+                    >
+                      {QUEUE_OPTIONS.map((queue) => (
+                        <option key={queue}>{queue}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Confidence</span>
+                    <select
+                      onChange={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          confidence: event.target.value
+                            ? Number(event.target.value)
+                            : null,
+                        })
+                      }
+                      value={problem.confidence ?? ''}
+                    >
+                      <option value="">-</option>
+                      {[1, 2, 3, 4, 5].map((score) => (
+                        <option key={score} value={score}>
+                          {score}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Mistake</span>
+                    <select
+                      onChange={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          mistakeType: event.target.value || null,
+                        })
+                      }
+                      value={problem.mistakeType ?? ''}
+                    >
+                      {MISTAKE_OPTIONS.map((mistake) => (
+                        <option key={mistake} value={mistake}>
+                          {mistake || '-'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <textarea
+                    aria-label={`Notes for ${problem.title}`}
+                    onBlur={(event) =>
+                      updateTrackedProblem(problem.id, {
+                        notes: event.target.value,
+                      })
+                    }
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setTrackedProblems((currentProblems) =>
+                        currentProblems.map((currentProblem) =>
+                          currentProblem.id === problem.id
+                            ? { ...currentProblem, notes: value }
+                            : currentProblem,
+                        ),
+                      )
+                    }}
+                    placeholder="Mistake note or revision cue"
+                    value={problem.notes ?? ''}
+                  />
+
+                  <button
+                    className="icon-button danger"
+                    disabled={savingId === problem.id}
+                    onClick={() => deleteTrackedProblem(problem.id)}
+                    title="Remove from tracker"
+                    type="button"
+                  >
+                    {savingId === problem.id ? (
+                      <Loader2 className="spin" size={15} />
+                    ) : (
+                      <Trash2 size={15} />
+                    )}
+                  </button>
                 </article>
               ))}
 
             {!trackedState.loading && trackedProblems.length === 0 && (
               <EmptyState
                 body="Track a problem from discovery to start building your practice plan."
-                title="Tracker is empty"
+                title="No tracked problems"
               />
             )}
           </div>
