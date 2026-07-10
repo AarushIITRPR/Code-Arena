@@ -356,7 +356,7 @@ export async function getCodeforcesProblems(filters = {}) {
     CodeforcesProblemCache.findOne().sort({ syncedAt: -1 }).lean(),
     CodeforcesProblemCache.countDocuments(query),
     CodeforcesProblemCache.find(query)
-      .sort({ rating: 1, externalId: 1 })
+      .sort({ contestId: -1, problemIndex: -1 })
       .skip(skip)
       .limit(normalizedFilters.limit)
       .lean(),
