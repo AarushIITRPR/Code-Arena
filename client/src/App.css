@@ -224,6 +224,7 @@ textarea {
   background: var(--paper);
   border: 1px solid var(--line-dark);
   border-radius: 7px;
+  box-sizing: border-box;
   color: var(--text);
   font: inherit;
   outline: none;
@@ -651,14 +652,35 @@ button:disabled {
   align-items: end;
   display: grid;
   gap: 10px;
-  grid-template-columns:
-    minmax(260px, 1.4fr) minmax(240px, 0.85fr) minmax(92px, 0.28fr)
-    minmax(92px, 0.28fr) auto;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
 .search-line label,
 .tag-filter {
   min-width: 0;
+}
+
+.search-line > label:first-child {
+  grid-column: span 5;
+}
+
+.search-line > .tag-filter {
+  grid-column: span 3;
+}
+
+.search-line > label:nth-of-type(2),
+.search-line > label:nth-of-type(3) {
+  grid-column: span 1;
+}
+
+.search-line > button {
+  grid-column: span 2;
+  width: 100%;
+}
+
+.search-line input {
+  min-width: 0;
+  width: 100%;
 }
 
 .tag-filter {
@@ -1124,6 +1146,21 @@ button:disabled {
   .prep-flow {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .search-line {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .search-line > label:first-child,
+  .search-line > .tag-filter {
+    grid-column: span 3;
+  }
+
+  .search-line > label:nth-of-type(2),
+  .search-line > label:nth-of-type(3),
+  .search-line > button {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1179,12 +1216,18 @@ button:disabled {
   }
 
   .search-line {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .search-line label:first-child,
-  .search-line button {
+  .search-line > label:first-child,
+  .search-line > .tag-filter,
+  .search-line > button {
     grid-column: 1 / -1;
+  }
+
+  .search-line > label:nth-of-type(2),
+  .search-line > label:nth-of-type(3) {
+    grid-column: span 1;
   }
 
   .task-row,
@@ -1214,6 +1257,14 @@ button:disabled {
   .profile-line,
   .search-line {
     grid-template-columns: 1fr;
+  }
+
+  .search-line > label:first-child,
+  .search-line > .tag-filter,
+  .search-line > label:nth-of-type(2),
+  .search-line > label:nth-of-type(3),
+  .search-line > button {
+    grid-column: 1 / -1;
   }
 
   .profile-line div,
