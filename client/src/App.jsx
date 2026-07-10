@@ -175,7 +175,13 @@ function VaultButton({ active, count, icon: Icon, label, onClick }) {
   )
 }
 
-function TopicGraph({ centerLabel, nodes, onNodeClick }) {
+function TopicGraph({
+  centerLabel,
+  centerMeta,
+  nodes,
+  onCenterClick,
+  onNodeClick,
+}) {
   const slots = [
     { x: 50, y: 15 },
     { x: 79, y: 30 },
@@ -198,21 +204,24 @@ function TopicGraph({ centerLabel, nodes, onNodeClick }) {
           />
         ))}
       </svg>
-      <button className="graph-center" type="button">
-        {centerLabel}
+      <button className="graph-center" onClick={onCenterClick} type="button">
+        <span>{centerLabel}</span>
+        {centerMeta && <em>{centerMeta}</em>}
       </button>
       {nodes.slice(0, 6).map((node, index) => (
         <button
-          className="graph-node"
+          className={node.active ? 'graph-node active' : 'graph-node'}
           key={node.label}
           onClick={() => onNodeClick(node.key)}
           style={{
             left: `${slots[index].x}%`,
             top: `${slots[index].y}%`,
           }}
+          title={`${humanizeTopic(node.key)}: ${formatNumber(node.count)} solved`}
           type="button"
         >
-          {node.label}
+          <span>{node.label}</span>
+          <em>{formatNumber(node.count)}</em>
         </button>
       ))}
     </div>
@@ -552,6 +561,31 @@ function App() {
     loadProblems(nextFilters)
   }
 
+  function searchByTopic(topic) {
+    const nextFilters = { ...filters, tag: topic, page: '1' }
+    setFocusTopic(topic)
+    setFilters(nextFilters)
+    loadProblems(nextFilters)
+  }
+
+  function handleGraphTopicClick(topic) {
+    if (activeView === 'discovery') {
+      searchByTopic(topic)
+      return
+    }
+
+    openTopic(topic)
+  }
+
+  function handleGraphCenterClick() {
+    if (activeView === 'discovery') {
+      loadProblems({ ...filters, page: '1' })
+      return
+    }
+
+    openTopic(focusTopic)
+  }
+
   function goToProblemPage(page) {
     const nextFilters = {
       ...filters,
@@ -623,12 +657,14 @@ function App() {
     ? `${Math.round((currentTopicSolved / dashboardSummary.attemptedCount) * 100)}%`
     : '0%'
 
+  const graphCenterTopic = activeView === 'discovery' ? filters.tag || 'all' : focusTopic
   const graphNodes = sidebarTopics
-    .filter(([topic]) => topic !== focusTopic)
+    .filter(([topic]) => topic !== graphCenterTopic)
     .slice(0, 6)
-    .map(([topic]) => ({
+    .map(([topic, count]) => ({
       key: topic,
       label: topic.length > 12 ? topic.split(' ')[0] : topic,
+      count,
     }))
 
   let documentTitle = humanizeTopic(focusTopic)
@@ -882,9 +918,15 @@ function App() {
           </div>
 
           <TopicGraph
-            centerLabel={activeView === 'insights' ? focusTopic : 'vault'}
+            centerLabel={graphCenterTopic}
+            centerMeta={
+              activeView === 'discovery'
+                ? `${formatNumber(problemData?.totalMatched)} matches`
+                : `${formatNumber(currentTopicSolved)} solved`
+            }
             nodes={graphNodes}
-            onNodeClick={openTopic}
+            onCenterClick={handleGraphCenterClick}
+            onNodeClick={handleGraphTopicClick}
           />
         </section>
 
