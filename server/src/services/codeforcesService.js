@@ -203,11 +203,25 @@ function getProblemKey(problem) {
 function summarizeSubmissions(submissions) {
   const acceptedProblems = new Map()
   const attemptedProblems = new Map()
+  const activityByDate = {}
   const solvedByRating = {}
   const solvedByTag = {}
 
   submissions.forEach((submission) => {
     const key = getProblemKey(submission.problem)
+    const submissionDate = submission.submittedAt.slice(0, 10)
+    const dailyActivity = activityByDate[submissionDate] ?? {
+      submissions: 0,
+      accepted: 0,
+    }
+
+    dailyActivity.submissions += 1
+
+    if (submission.verdict === 'OK') {
+      dailyActivity.accepted += 1
+    }
+
+    activityByDate[submissionDate] = dailyActivity
     attemptedProblems.set(key, submission.problem)
 
     if (submission.verdict !== 'OK' || acceptedProblems.has(key)) {
@@ -237,7 +251,9 @@ function summarizeSubmissions(submissions) {
     solvedCount: acceptedProblems.size,
     attemptedCount: attemptedProblems.size,
     unsolvedAttemptedCount: unsolvedAttemptedProblems.length,
+    solvedProblems: [...acceptedProblems.values()],
     unsolvedAttemptedProblems,
+    activityByDate,
     solvedByRating,
     solvedByTag,
   }

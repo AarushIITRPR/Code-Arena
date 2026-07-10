@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Check,
-  ChevronRight,
   DatabaseZap,
   ExternalLink,
   Loader2,
@@ -15,8 +14,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -37,7 +34,6 @@ const MISTAKE_OPTIONS = [
   'TLE / optimization',
   'Could not derive approach',
 ]
-const CHART_COLORS = ['#111111', '#57534e', '#a8a29e', '#d6d3d1']
 const PROBLEM_PAGE_SIZE = 39
 const CODEFORCES_TAG_OPTIONS = [
   'implementation',
@@ -111,22 +107,6 @@ function toEntries(record = {}) {
   })
 }
 
-function getRatingBand(entries) {
-  const bands = new Map()
-
-  entries
-    .filter(([rating]) => rating !== 'unrated')
-    .map(([rating, count]) => [Number(rating), count])
-    .sort(([firstRating], [secondRating]) => firstRating - secondRating)
-    .forEach(([rating, count]) => {
-      const bandStart = Math.floor(rating / 200) * 200
-      const label = `${bandStart}-${bandStart + 199}`
-      bands.set(label, (bands.get(label) ?? 0) + count)
-    })
-
-  return [...bands.entries()]
-}
-
 function getProblemTopic(problem) {
   return problem.tags?.[0] ?? 'general'
 }
@@ -145,6 +125,102 @@ function getRatingAccent(rating) {
   if (rating < 2400) return '#ff8c00'
   if (rating < 3000) return '#ff0000'
   return '#aa0000'
+}
+
+function formatUtcDateKey(date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function buildHeatmapMonths(activityByDate, monthCount = 12) {
+  const now = new Date()
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  )
+
+  return Array.from({ length: monthCount }, (_, monthIndex) => {
+    const firstDay = new Date(
+      Date.UTC(
+        today.getUTCFullYear(),
+        today.getUTCMonth() - (monthCount - 1) + monthIndex,
+        1,
+      ),
+    )
+    const daysInMonth = new Date(
+      Date.UTC(firstDay.getUTCFullYear(), firstDay.getUTCMonth() + 1, 0),
+    ).getUTCDate()
+    const leadingEmptyDays = firstDay.getUTCDay()
+    const cells = Array.from({ length: 42 }, (_, cellIndex) => {
+      const dayNumber = cellIndex - leadingEmptyDays + 1
+
+      if (dayNumber < 1 || dayNumber > daysInMonth) {
+        return null
+      }
+
+      const date = new Date(
+        Date.UTC(firstDay.getUTCFullYear(), firstDay.getUTCMonth(), dayNumber),
+      )
+      const key = formatUtcDateKey(date)
+      const activity = activityByDate[key] ?? {}
+
+      return {
+        key,
+        date,
+        isFuture: date > today,
+        submissions: activity.submissions ?? 0,
+        accepted: activity.accepted ?? 0,
+      }
+    })
+
+    return {
+      key: formatUtcDateKey(firstDay),
+      label: new Intl.DateTimeFormat('en', {
+        month: 'short',
+        timeZone: 'UTC',
+      }).format(firstDay),
+      year: firstDay.getUTCFullYear(),
+      submissions: cells.reduce(
+        (total, day) => total + (day?.submissions ?? 0),
+        0,
+      ),
+      cells,
+    }
+  })
+}
+
+function getActivityLevel(count) {
+  if (count === 0) return 0
+  if (count <= 2) return 1
+  if (count <= 4) return 2
+  if (count <= 7) return 3
+  return 4
+}
+
+function getActivityMetrics(activityByDate) {
+  const activeDates = new Set(
+    Object.entries(activityByDate)
+      .filter(([, activity]) => (activity.submissions ?? 0) > 0)
+      .map(([date]) => date),
+  )
+  const now = new Date()
+  const cursor = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  )
+
+  if (!activeDates.has(formatUtcDateKey(cursor))) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+
+  let currentStreak = 0
+
+  while (activeDates.has(formatUtcDateKey(cursor))) {
+    currentStreak += 1
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+
+  return {
+    activeDays: activeDates.size,
+    currentStreak,
+  }
 }
 
 function formatTagSummary(tags) {
@@ -190,15 +266,6 @@ function CodeforcesIcon() {
   )
 }
 
-function InsightRow({ label, value }) {
-  return (
-    <div className="insight-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
-}
-
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
 
@@ -209,6 +276,71 @@ function ChartTooltip({ active, payload, label }) {
         <span key={entry.name}>
           {entry.name}: {formatNumber(entry.value)}
         </span>
+      ))}
+    </div>
+  )
+}
+
+function ActivityAtlas({ activityByDate }) {
+  const months = useMemo(
+    () => buildHeatmapMonths(activityByDate),
+    [activityByDate],
+  )
+  const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+  return (
+    <div className="activity-atlas" aria-label="Twelve month submission heatmap">
+      {months.map((month, monthIndex) => (
+        <article className="activity-month" key={month.key}>
+          <header>
+            <span>
+              {month.label}
+              {(monthIndex === 0 || month.label === 'Jan') && (
+                <small>{month.year}</small>
+              )}
+            </span>
+            <strong>{formatNumber(month.submissions)}</strong>
+          </header>
+
+          <div className="activity-week-key" aria-hidden="true">
+            {weekdayLabels.map((label, index) => (
+              <span key={`${label}-${index}`}>{label}</span>
+            ))}
+          </div>
+
+          <div className="activity-month-grid">
+            {month.cells.map((day, cellIndex) => {
+              if (!day) {
+                return (
+                  <span
+                    aria-hidden="true"
+                    className="activity-day empty"
+                    key={`empty-${cellIndex}`}
+                  />
+                )
+              }
+
+              const dateLabel = new Intl.DateTimeFormat('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'UTC',
+              }).format(day.date)
+              const activityLabel = `${dateLabel}: ${day.submissions} submissions, ${day.accepted} accepted`
+
+              return (
+                <span
+                  aria-label={activityLabel}
+                  className={`activity-day level-${getActivityLevel(
+                    day.submissions,
+                  )}${day.isFuture ? ' future' : ''}`}
+                  key={day.key}
+                  title={activityLabel}
+                />
+              )
+            })}
+          </div>
+        </article>
       ))}
     </div>
   )
@@ -266,7 +398,7 @@ function App() {
       const method = shouldRefresh ? 'POST' : 'GET'
       const suffix = shouldRefresh ? '/refresh' : ''
       const data = await apiRequest(
-        `/api/codeforces/dashboard/${encodeURIComponent(trimmedHandle)}${suffix}?count=500`,
+        `/api/codeforces/dashboard/${encodeURIComponent(trimmedHandle)}${suffix}?count=1000`,
         { method },
       )
 
@@ -445,10 +577,6 @@ function App() {
     () => toEntries(dashboardSummary?.solvedByTag).slice(0, 10),
     [dashboardSummary],
   )
-  const ratingEntries = useMemo(
-    () => getRatingBand(toEntries(dashboardSummary?.solvedByRating)).slice(0, 8),
-    [dashboardSummary],
-  )
 
   const trackedSummary = useMemo(() => {
     const revisionProblems = trackedProblems.filter((problem) => {
@@ -473,9 +601,46 @@ function App() {
     }
   }, [trackedProblems])
 
-  const trackedExternalIds = useMemo(() => {
-    return new Set(trackedProblems.map((problem) => problem.externalId))
+  const trackedProblemByExternalId = useMemo(() => {
+    return new Map(
+      trackedProblems.map((problem) => [problem.externalId, problem]),
+    )
   }, [trackedProblems])
+
+  const userAttemptByExternalId = useMemo(() => {
+    const attempts = new Map()
+
+    dashboardSummary?.unsolvedAttemptedProblems?.forEach((problem) => {
+      if (problem.externalId) {
+        attempts.set(problem.externalId, 'Unsolved')
+      }
+    })
+
+    dashboardSummary?.solvedProblems?.forEach((problem) => {
+      if (problem.externalId) {
+        attempts.set(problem.externalId, 'Solved')
+      }
+    })
+
+    dashboard?.recentSubmissions?.forEach((submission) => {
+      const externalId = submission.problem?.externalId
+
+      if (!externalId) {
+        return
+      }
+
+      if (submission.verdict === 'OK') {
+        attempts.set(externalId, 'Solved')
+        return
+      }
+
+      if (!attempts.has(externalId)) {
+        attempts.set(externalId, 'Unsolved')
+      }
+    })
+
+    return attempts
+  }, [dashboard?.recentSubmissions, dashboardSummary])
 
   const inboxProblems = useMemo(() => {
     return trackedProblems.filter((problem) => {
@@ -489,66 +654,68 @@ function App() {
     })
   }, [trackedProblems])
 
-  const recommendedProblems = useMemo(() => {
-    const solvedTags = new Set(tagEntries.slice(0, 4).map(([tag]) => tag))
-
-    return (problemData?.problems ?? [])
-      .filter((problem) => !trackedExternalIds.has(problem.externalId))
-      .map((problem) => ({
-        ...problem,
-        reason: solvedTags.has(getProblemTopic(problem))
-          ? 'same topic depth'
-          : 'coverage gap',
-      }))
-      .slice(0, 8)
-  }, [problemData, tagEntries, trackedExternalIds])
-
   const topicChartData = useMemo(() => {
-    return tagEntries.slice(0, 8).map(([topic, solved]) => ({
+    return tagEntries.map(([topic, solved]) => ({
       topic,
       solved,
     }))
   }, [tagEntries])
 
   const ratingChartData = useMemo(() => {
-    return ratingEntries.map(([band, solved]) => ({
-      band,
-      solved,
-    }))
-  }, [ratingEntries])
-
-  const attemptChartData = useMemo(() => {
-    const solved = dashboardSummary?.solvedCount ?? 0
-    const unsolved = dashboardSummary?.unsolvedAttemptedCount ?? 0
-
-    return [
-      { name: 'Solved', value: solved },
-      { name: 'Unsolved attempted', value: unsolved },
-    ].filter((entry) => entry.value > 0)
+    return Object.entries(dashboardSummary?.solvedByRating ?? {})
+      .filter(([rating]) => rating !== 'unrated')
+      .map(([rating, solved]) => ({
+        rating: Number(rating),
+        solved,
+      }))
+      .sort((firstEntry, secondEntry) => {
+        return firstEntry.rating - secondEntry.rating
+      })
   }, [dashboardSummary])
 
-  const prepFlow = [
-    {
-      label: 'Submissions',
-      value: dashboardSummary?.totalSubmissions ?? 0,
-    },
-    {
-      label: 'Unique attempted',
-      value: dashboardSummary?.attemptedCount ?? 0,
-    },
-    {
-      label: 'Solved',
-      value: dashboardSummary?.solvedCount ?? 0,
-    },
-    {
-      label: 'In tracker',
-      value: trackedSummary.total,
-    },
-    {
-      label: 'Revision',
-      value: trackedSummary.revision,
-    },
-  ]
+  const activityByDate = useMemo(() => {
+    const cachedActivity = dashboardSummary?.activityByDate
+
+    if (cachedActivity && Object.keys(cachedActivity).length > 0) {
+      return cachedActivity
+    }
+
+    return (dashboard?.recentSubmissions ?? []).reduce((activity, submission) => {
+      const submissionDate = submission.submittedAt?.slice(0, 10)
+
+      if (!submissionDate) return activity
+
+      const dailyActivity = activity[submissionDate] ?? {
+        submissions: 0,
+        accepted: 0,
+      }
+
+      dailyActivity.submissions += 1
+
+      if (submission.verdict === 'OK') {
+        dailyActivity.accepted += 1
+      }
+
+      activity[submissionDate] = dailyActivity
+      return activity
+    }, {})
+  }, [dashboard?.recentSubmissions, dashboardSummary?.activityByDate])
+
+  const activityMetrics = useMemo(
+    () => getActivityMetrics(activityByDate),
+    [activityByDate],
+  )
+  const solveRate = dashboardSummary?.attemptedCount
+    ? Math.round(
+        (dashboardSummary.solvedCount / dashboardSummary.attemptedCount) * 100,
+      )
+    : 0
+  const topTopic = topicChartData[0]
+  const topRating = ratingChartData.reduce(
+    (leadingEntry, entry) =>
+      entry.solved > (leadingEntry?.solved ?? -1) ? entry : leadingEntry,
+    null,
+  )
 
   const syncAction = (
     <form
@@ -579,11 +746,8 @@ function App() {
     <main className="workspace-shell">
       <aside className="nav-rail" aria-label="CodeArena navigation">
         <div className="workspace-brand">
-          <span>C</span>
-          <div>
-            <strong>CodeArena</strong>
-            <em>Codeforces prep</em>
-          </div>
+          <strong>CodeArena</strong>
+          <em>Practice, deliberately.</em>
         </div>
 
         <nav className="workspace-nav">
@@ -623,7 +787,14 @@ function App() {
 
         <div className="rail-footer">
           <div className="account-dot">
-            {(activeHandle || 'u').slice(0, 1).toUpperCase()}
+            {dashboard?.profile?.avatar ? (
+              <img
+                alt={`${activeHandle} Codeforces profile`}
+                src={dashboard.profile.avatar}
+              />
+            ) : (
+              (activeHandle || 'u').slice(0, 1).toUpperCase()
+            )}
           </div>
           <div>
             <strong>{activeHandle}</strong>
@@ -635,7 +806,7 @@ function App() {
         </div>
       </aside>
 
-      <section className="main-feed">
+      <section className="main-feed" data-view={activeView}>
         {(dashboardState.error || problemState.error || trackedState.error) && (
           <div className="error-stack">
             {[dashboardState.error, problemState.error, trackedState.error]
@@ -647,29 +818,25 @@ function App() {
         )}
 
         {activeView === 'inbox' && (
-          <section className="screen-view">
+          <section className="screen-view editorial-screen inbox-view">
             <ScreenHeader
               action={syncAction}
-              body="Problems you have chosen to solve next. Revision items are moved out into their own log."
+              body="A short, intentional queue of problems worth solving next."
               title="Practice Inbox"
             />
 
-            <section className="profile-line">
+            <section className="page-narrative">
+              <p>
+                <em>{trackedSummary.inbox}</em> problems are waiting for a
+                deliberate attempt.
+              </p>
               <div>
-                <span>Inbox</span>
-                <strong>{trackedSummary.inbox}</strong>
-              </div>
-              <div>
-                <span>Solved</span>
-                <strong>{trackedSummary.solved}</strong>
-              </div>
-              <div>
-                <span>Attempted</span>
-                <strong>{formatNumber(dashboardSummary?.attemptedCount)}</strong>
-              </div>
-              <div>
-                <span>Rating</span>
-                <strong>{dashboard?.profile?.rating ?? 'Unrated'}</strong>
+                <span>{trackedSummary.solved} tracked problems solved</span>
+                <span>
+                  {formatNumber(dashboardSummary?.attemptedCount)} attempted on
+                  Codeforces
+                </span>
+                <strong>{dashboard?.profile?.rating ?? 'Unrated'} rating</strong>
               </div>
             </section>
 
@@ -699,30 +866,36 @@ function App() {
                       {getProblemTopic(problem)}
                     </span>
                   </div>
-                  <select
-                    onChange={(event) =>
-                      updateTrackedProblem(problem.id, {
-                        status: event.target.value,
-                      })
-                    }
-                    value={problem.status}
-                  >
-                    {STATUS_OPTIONS.map((status) => (
-                      <option key={status}>{status}</option>
-                    ))}
-                  </select>
-                  <select
-                    onChange={(event) =>
-                      updateTrackedProblem(problem.id, {
-                        queue: event.target.value,
-                      })
-                    }
-                    value={problem.queue}
-                  >
-                    {QUEUE_OPTIONS.map((queue) => (
-                      <option key={queue}>{queue}</option>
-                    ))}
-                  </select>
+                  <label className="task-control">
+                    <span>Status</span>
+                    <select
+                      onChange={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          status: event.target.value,
+                        })
+                      }
+                      value={problem.status}
+                    >
+                      {STATUS_OPTIONS.map((status) => (
+                        <option key={status}>{status}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="task-control">
+                    <span>Queue</span>
+                    <select
+                      onChange={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          queue: event.target.value,
+                        })
+                      }
+                      value={problem.queue}
+                    >
+                      {QUEUE_OPTIONS.map((queue) => (
+                        <option key={queue}>{queue}</option>
+                      ))}
+                    </select>
+                  </label>
                 </article>
               ))}
 
@@ -737,7 +910,7 @@ function App() {
         )}
 
         {activeView === 'discovery' && (
-          <section className="screen-view">
+          <section className="screen-view editorial-screen discovery-view">
             <ScreenHeader
               action={
                 <button
@@ -750,8 +923,8 @@ function App() {
                   Refresh cache
                 </button>
               }
-              body="Search Codeforces by topic, rating, or title and send problems into your practice inbox."
-              title="Problem Discovery"
+              body="Search Codeforces by topic, rating, or title, then keep only what deserves your attention."
+              title="Find your next problem."
             />
 
             <form
@@ -853,7 +1026,7 @@ function App() {
             </form>
 
             <div className="problem-results-title">
-              <h2>Search Results</h2>
+              <h2>Matching problems</h2>
               {problemData && (
                 <span>
                   {problemData.count} shown /{' '}
@@ -862,25 +1035,35 @@ function App() {
               )}
             </div>
 
-            <div className="problem-card-grid">
+            <div className="problem-index">
               {problemState.loading && (
                 <EmptyState title="Searching" body="Loading matching problems." />
               )}
 
               {!problemState.loading &&
                 (problemData?.problems ?? []).map((problem) => {
-                  const alreadyTracked = trackedExternalIds.has(problem.externalId)
+                  const trackedProblem = trackedProblemByExternalId.get(
+                    problem.externalId,
+                  )
+                  const alreadyTracked = Boolean(trackedProblem)
+                  const attemptStatus =
+                    userAttemptByExternalId.get(problem.externalId) ??
+                    'Unattempted'
 
                   return (
                     <article
-                      className="problem-card"
+                      className="problem-entry"
+                      data-problem-id={problem.externalId}
                       key={problem.externalId}
                       style={{
                         '--problem-accent': getRatingAccent(problem.rating),
                       }}
                     >
-                      <div className="problem-card-head">
-                        <h3>{problem.title}</h3>
+                      <header>
+                        <p className="problem-entry-identity">
+                          <span>{problem.externalId}</span>
+                          <strong>{problem.rating ?? 'Unrated'}</strong>
+                        </p>
                         <a
                           aria-label={`Open ${problem.externalId} on Codeforces`}
                           className="codeforces-link"
@@ -891,21 +1074,28 @@ function App() {
                         >
                           <CodeforcesIcon />
                         </a>
-                      </div>
+                      </header>
 
-                      <p className="problem-card-meta">
-                        <span className="problem-card-id">
-                          {problem.externalId}
-                        </span>
-                        <span className="meta-separator">&middot;</span>
-                        <span className="problem-card-rating">
-                          {problem.rating ?? 'Unrated'}
-                        </span>
-                        <span className="meta-separator">&middot;</span>
-                        {problem.tags?.slice(0, 2).join(', ') || 'untagged'}
+                      <h3>{problem.title}</h3>
+                      <p
+                        className="problem-entry-tags"
+                        title={problem.tags.join(', ')}
+                      >
+                        {problem.tags.length > 0
+                          ? problem.tags.slice(0, 2).join(' · ')
+                          : 'untagged'}
+                        {problem.tags.length > 2 && (
+                          <span> +{problem.tags.length - 2}</span>
+                        )}
                       </p>
 
                       <footer>
+                        <div className="problem-entry-state">
+                          <span className={getStatusClass(attemptStatus)}>
+                            {attemptStatus}
+                          </span>
+                          {trackedProblem && <em>{trackedProblem.status}</em>}
+                        </div>
                         <button
                           className="text-button"
                           disabled={alreadyTracked || savingId === problem.externalId}
@@ -987,267 +1177,264 @@ function App() {
         )}
 
         {activeView === 'insights' && (
-          <section className="screen-view">
-            <ScreenHeader
-              action={syncAction}
-              body="Animated charts from synced Codeforces activity: topic coverage, rating bands, and solved-vs-unsolved attempts."
-              title="Profile Insights"
-            />
+          <section className="screen-view insights-view">
+            <header className="insights-profile-header">
+              <div className="insights-person">
+                <div className="insights-avatar">
+                  {dashboard?.profile?.avatar ? (
+                    <img
+                      alt={`${dashboard.profile.handle} Codeforces profile`}
+                      src={dashboard.profile.avatar}
+                    />
+                  ) : (
+                    <span>{activeHandle.slice(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <p className="insights-profile-meta">
+                    Codeforces profile
+                    <span>updated {formatShortDate(dashboard?.syncedAt)}</span>
+                  </p>
+                  <h1>{dashboard?.profile?.handle ?? activeHandle}</h1>
+                  <p className="insights-rank">
+                    {dashboard?.profile?.rank ?? 'Unrated'}
+                  </p>
+                </div>
+              </div>
 
-            <section className="profile-line">
-              <div>
-                <span>Rating</span>
-                <strong>{dashboard?.profile?.rating ?? 'Unrated'}</strong>
-              </div>
-              <div>
-                <span>Solved</span>
-                <strong>{formatNumber(dashboardSummary?.solvedCount)}</strong>
-              </div>
-              <div>
-                <span>Attempted</span>
-                <strong>{formatNumber(dashboardSummary?.attemptedCount)}</strong>
-              </div>
-              <div>
-                <span>Unsolved</span>
-                <strong>{dashboardSummary?.unsolvedAttemptedCount ?? 0}</strong>
+              <form
+                className="insights-sync"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  loadDashboard(handleInput, true)
+                }}
+              >
+                <span aria-hidden="true">@</span>
+                <input
+                  aria-label="Codeforces handle"
+                  onChange={(event) => setHandleInput(event.target.value)}
+                  placeholder="Codeforces handle"
+                  value={handleInput}
+                />
+                <button
+                  aria-label="Sync Codeforces profile"
+                  disabled={dashboardState.loading}
+                  title="Sync Codeforces profile"
+                  type="submit"
+                >
+                  <RefreshCcw
+                    className={dashboardState.loading ? 'spin' : ''}
+                    size={17}
+                  />
+                </button>
+              </form>
+            </header>
+
+            <section className="profile-narrative">
+              <p className="profile-statement">
+                <em>{formatNumber(dashboardSummary?.solvedCount)}</em> unique
+                problems solved, with a <em>{solveRate}%</em> solve rate.
+              </p>
+
+              <div className="rating-readout">
+                <p>
+                  <strong
+                    style={{ color: getRatingAccent(dashboard?.profile?.rating) }}
+                  >
+                    {dashboard?.profile?.rating ?? 'Unrated'}
+                  </strong>{' '}
+                  now
+                </p>
+                <p>
+                  <strong>{dashboard?.profile?.maxRating ?? '-'}</strong> personal
+                  best
+                </p>
+                <span>
+                  {formatNumber(dashboardSummary?.totalSubmissions)} submissions
+                  across {activityMetrics.activeDays} active days
+                </span>
               </div>
             </section>
 
-            <div className="analytics-grid">
-              <section className="analytics-card profile-cardless">
-                <div className="chart-heading">
-                  <span>Profile snapshot</span>
-                  <strong>{dashboard?.profile?.rating ?? 'Unrated'}</strong>
+            <section className="insight-chapter difficulty-chapter">
+              <header className="chapter-heading">
+                <div>
+                  <h2>Difficulty, mapped.</h2>
+                  <p>
+                    Every bar is a Codeforces rating; every height is a unique
+                    accepted problem.
+                  </p>
                 </div>
-                <h2>{dashboard?.profile?.handle ?? activeHandle}</h2>
-                <p className="profile-rank">
-                  {dashboard?.profile?.rank ?? 'Codeforces user'}
-                </p>
-                <p>Synced {formatShortDate(dashboard?.syncedAt)} from Codeforces.</p>
-                <InsightRow
-                  label="Max rating"
-                  value={dashboard?.profile?.maxRating ?? '-'}
-                />
-                <InsightRow
-                  label="Tracked problems"
-                  value={trackedSummary.total}
-                />
-                <InsightRow label="Tracked solved" value={trackedSummary.solved} />
+                {topRating && (
+                  <p className="chapter-observation">
+                    Your deepest shelf is{' '}
+                    <strong style={{ color: getRatingAccent(topRating.rating) }}>
+                      {topRating.rating}
+                    </strong>
+                    , with {formatNumber(topRating.solved)} solved.
+                  </p>
+                )}
+              </header>
+
+              <div className="difficulty-spectrum">
+                {ratingChartData.length > 0 ? (
+                  <ResponsiveContainer height={360} width="100%">
+                    <BarChart
+                      data={ratingChartData}
+                      margin={{ bottom: 4, left: -12, right: 8, top: 26 }}
+                    >
+                      <CartesianGrid stroke="#e9e5ff" vertical={false} />
+                      <XAxis
+                        axisLine={{ stroke: '#cbc3ff' }}
+                        dataKey="rating"
+                        interval="preserveStartEnd"
+                        minTickGap={24}
+                        tick={{
+                          fill: '#5f5878',
+                          fontFamily: 'Manrope Variable',
+                          fontSize: 10,
+                        }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        axisLine={false}
+                        tick={{
+                          fill: '#837c9c',
+                          fontFamily: 'Manrope Variable',
+                          fontSize: 10,
+                        }}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        content={<ChartTooltip />}
+                        cursor={{ fill: 'rgba(99, 91, 255, 0.05)' }}
+                      />
+                      <Bar
+                        animationDuration={1100}
+                        dataKey="solved"
+                        isAnimationActive
+                        maxBarSize={34}
+                        name="Solved"
+                        radius={[3, 3, 0, 0]}
+                      >
+                        {ratingChartData.map((entry) => (
+                          <Cell
+                            fill={getRatingAccent(entry.rating)}
+                            key={entry.rating}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <EmptyState
+                    body="Rated solves appear after a profile sync."
+                    title="No rating data"
+                  />
+                )}
+              </div>
+            </section>
+
+            <div className="insights-asymmetry">
+              <section className="insight-chapter activity-chapter">
+                <header className="chapter-heading chapter-heading-stacked">
+                  <div>
+                    <h2>A year in practice.</h2>
+                    <p>
+                      Twelve monthly calendars, built from the latest 1,000
+                      submissions.
+                    </p>
+                  </div>
+                  <p className="activity-summary">
+                    <strong>{activityMetrics.activeDays}</strong> active days
+                    <span>
+                      {activityMetrics.currentStreak > 0
+                        ? `${activityMetrics.currentStreak}-day current streak`
+                        : 'No active streak today'}
+                    </span>
+                  </p>
+                </header>
+
+                <ActivityAtlas activityByDate={activityByDate} />
+
+                <footer className="atlas-legend">
+                  <span>Quiet</span>
+                  {[0, 1, 2, 3, 4].map((level) => (
+                    <i className={`activity-day level-${level}`} key={level} />
+                  ))}
+                  <span>Busy</span>
+                </footer>
               </section>
 
-              <section className="analytics-card analytics-card-wide">
-                <div className="chart-heading">
-                  <span>Topic-wise solved</span>
-                  <strong>{formatNumber(topicChartData.length)} topics</strong>
-                </div>
-                <div className="chart-frame">
+              <section className="insight-chapter topics-chapter">
+                <header className="chapter-heading chapter-heading-stacked">
+                  <div>
+                    <h2>Where the work went.</h2>
+                    <p>
+                      {topTopic
+                        ? `${topTopic.topic} leads your solved history.`
+                        : 'Topic coverage appears after a profile sync.'}
+                    </p>
+                  </div>
+                </header>
+
+                <ol className="topic-editorial-list">
                   {topicChartData.length > 0 ? (
-                    <ResponsiveContainer height={290} width="100%">
-                      <BarChart
-                        data={topicChartData}
-                        layout="vertical"
-                        margin={{ bottom: 8, left: 8, right: 24, top: 8 }}
+                    topicChartData.map((entry, index) => (
+                      <li
+                        key={entry.topic}
+                        style={{
+                          '--topic-color': [
+                            '#635bff',
+                            '#f05a47',
+                            '#168a68',
+                            '#d68c22',
+                            '#3478d4',
+                          ][index % 5],
+                          '--topic-width': `${Math.max(
+                            (entry.solved / topTopic.solved) * 100,
+                            4,
+                          )}%`,
+                        }}
                       >
-                        <CartesianGrid horizontal={false} stroke="#e7e5e4" />
-                        <XAxis
-                          allowDecimals={false}
-                          axisLine={false}
-                          tick={{ fill: '#78716c', fontSize: 11 }}
-                          tickLine={false}
-                          type="number"
-                        />
-                        <YAxis
-                          axisLine={false}
-                          dataKey="topic"
-                          tick={{ fill: '#78716c', fontSize: 11 }}
-                          tickLine={false}
-                          type="category"
-                          width={126}
-                        />
-                        <Tooltip content={<ChartTooltip />} cursor={false} />
-                        <Bar
-                          animationDuration={900}
-                          dataKey="solved"
-                          fill="#111111"
-                          isAnimationActive
-                          name="Solved"
-                          radius={[0, 6, 6, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                        <div>
+                          <span>{entry.topic}</span>
+                          <strong>{formatNumber(entry.solved)}</strong>
+                        </div>
+                        <i>
+                          <span />
+                        </i>
+                      </li>
+                    ))
                   ) : (
                     <EmptyState body="Sync a handle first." title="No topic data" />
                   )}
-                </div>
-              </section>
-
-              <section className="analytics-card">
-                <div className="chart-heading">
-                  <span>Rating bands</span>
-                  <strong>{formatNumber(ratingChartData.length)} bands</strong>
-                </div>
-                <div className="chart-frame">
-                  {ratingChartData.length > 0 ? (
-                    <ResponsiveContainer height={270} width="100%">
-                      <BarChart
-                        data={ratingChartData}
-                        layout="vertical"
-                        margin={{ bottom: 8, left: 2, right: 24, top: 8 }}
-                      >
-                        <CartesianGrid horizontal={false} stroke="#e7e5e4" />
-                        <XAxis
-                          allowDecimals={false}
-                          axisLine={false}
-                          tick={{ fill: '#78716c', fontSize: 11 }}
-                          tickLine={false}
-                          type="number"
-                        />
-                        <YAxis
-                          axisLine={false}
-                          dataKey="band"
-                          tick={{ fill: '#78716c', fontSize: 11 }}
-                          tickLine={false}
-                          type="category"
-                          width={76}
-                        />
-                        <Tooltip content={<ChartTooltip />} cursor={false} />
-                        <Bar
-                          animationDuration={900}
-                          dataKey="solved"
-                          fill="#57534e"
-                          isAnimationActive
-                          name="Solved"
-                          radius={[0, 6, 6, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <EmptyState
-                      body="Rated solves appear here."
-                      title="No rating data"
-                    />
-                  )}
-                </div>
-              </section>
-
-              <section className="analytics-card">
-                <div className="chart-heading">
-                  <span>Attempts split</span>
-                  <strong>{formatNumber(dashboardSummary?.attemptedCount)}</strong>
-                </div>
-                <div className="donut-wrap">
-                  {attemptChartData.length > 0 ? (
-                    <>
-                      <ResponsiveContainer height={250} width="100%">
-                        <PieChart>
-                          <Tooltip content={<ChartTooltip />} />
-                          <Pie
-                            animationDuration={900}
-                            data={attemptChartData}
-                            dataKey="value"
-                            innerRadius={66}
-                            isAnimationActive
-                            nameKey="name"
-                            outerRadius={94}
-                            paddingAngle={3}
-                          >
-                            {attemptChartData.map((entry, index) => (
-                              <Cell
-                                fill={CHART_COLORS[index % CHART_COLORS.length]}
-                                key={entry.name}
-                              />
-                            ))}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="donut-center">
-                        <strong>{formatNumber(dashboardSummary?.solvedCount)}</strong>
-                        <span>solved</span>
-                      </div>
-                    </>
-                  ) : (
-                    <EmptyState
-                      body="Sync submissions to see attempt quality."
-                      title="No attempt data"
-                    />
-                  )}
-                </div>
-              </section>
-
-              <section className="analytics-card analytics-card-wide">
-                <div className="chart-heading">
-                  <span>Preparation flow</span>
-                  <strong>{dashboard?.profile?.handle ?? activeHandle}</strong>
-                </div>
-                <div className="prep-flow">
-                  {prepFlow.map((step, index) => (
-                    <div className="flow-step" key={step.label}>
-                      <span>{step.label}</span>
-                      <strong>{formatNumber(step.value)}</strong>
-                      {index < prepFlow.length - 1 && <ChevronRight size={16} />}
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="analytics-card">
-                <div className="chart-heading">
-                  <span>Practice suggestions</span>
-                  <strong>{formatNumber(recommendedProblems.length)}</strong>
-                </div>
-                <div className="suggestion-stack">
-                  {recommendedProblems.length > 0 ? (
-                    recommendedProblems.map((problem) => (
-                      <button
-                        disabled={savingId === problem.externalId}
-                        key={problem.externalId}
-                        onClick={() => trackProblem(problem, 'Today')}
-                        type="button"
-                      >
-                        <span>
-                          <strong>{problem.title}</strong>
-                          <em>
-                            {problem.rating ?? 'Unrated'} / {problem.reason}
-                          </em>
-                        </span>
-                        <Plus size={14} />
-                      </button>
-                    ))
-                  ) : (
-                    <EmptyState
-                      body="Use Problem Discovery to generate targeted suggestions."
-                      title="No suggestions yet"
-                    />
-                  )}
-                </div>
+                </ol>
               </section>
             </div>
           </section>
         )}
 
         {activeView === 'revision' && (
-          <section className="screen-view">
+          <section className="screen-view editorial-screen revision-view">
             <ScreenHeader
-              body="Problems marked Revise or moved to the Revision queue, with mistake type, confidence, and notes."
-              title="Revision Log"
+              body="Return to mistakes while the lesson is still useful."
+              title="Revision, deliberately."
             />
 
-            <section className="profile-line">
+            <section className="page-narrative revision-narrative">
+              <p>
+                <em>{trackedSummary.revision}</em> problems deserve another
+                pass.
+              </p>
               <div>
-                <span>Revision</span>
-                <strong>{trackedSummary.revision}</strong>
-              </div>
-              <div>
-                <span>Low confidence</span>
-                <strong>{trackedSummary.lowConfidence}</strong>
-              </div>
-              <div>
-                <span>Unsolved attempts</span>
-                <strong>{dashboardSummary?.unsolvedAttemptedCount ?? 0}</strong>
-              </div>
-              <div>
-                <span>Tracked solved</span>
-                <strong>{trackedSummary.solved}</strong>
+                <span>{trackedSummary.lowConfidence} low-confidence notes</span>
+                <span>
+                  {dashboardSummary?.unsolvedAttemptedCount ?? 0} unsolved
+                  Codeforces attempts
+                </span>
+                <strong>{trackedSummary.solved} tracked problems solved</strong>
               </div>
             </section>
 
@@ -1270,59 +1457,68 @@ function App() {
                     </div>
                   </div>
 
-                  <select
-                    onChange={(event) =>
-                      updateTrackedProblem(problem.id, {
-                        mistakeType: event.target.value || null,
-                      })
-                    }
-                    value={problem.mistakeType ?? ''}
-                  >
-                    {MISTAKE_OPTIONS.map((mistake) => (
-                      <option key={mistake} value={mistake}>
-                        {mistake || '-'}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="revision-field">
+                    <span>Mistake</span>
+                    <select
+                      onChange={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          mistakeType: event.target.value || null,
+                        })
+                      }
+                      value={problem.mistakeType ?? ''}
+                    >
+                      {MISTAKE_OPTIONS.map((mistake) => (
+                        <option key={mistake} value={mistake}>
+                          {mistake || '-'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                  <select
-                    onChange={(event) =>
-                      updateTrackedProblem(problem.id, {
-                        confidence: event.target.value
-                          ? Number(event.target.value)
-                          : null,
-                      })
-                    }
-                    value={problem.confidence ?? ''}
-                  >
-                    <option value="">-</option>
-                    {[1, 2, 3, 4, 5].map((score) => (
-                      <option key={score} value={score}>
-                        {score}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="revision-field confidence-field">
+                    <span>Confidence</span>
+                    <select
+                      onChange={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          confidence: event.target.value
+                            ? Number(event.target.value)
+                            : null,
+                        })
+                      }
+                      value={problem.confidence ?? ''}
+                    >
+                      <option value="">-</option>
+                      {[1, 2, 3, 4, 5].map((score) => (
+                        <option key={score} value={score}>
+                          {score}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                  <textarea
-                    aria-label={`Notes for ${problem.title}`}
-                    onBlur={(event) =>
-                      updateTrackedProblem(problem.id, {
-                        notes: event.target.value,
-                      })
-                    }
-                    onChange={(event) => {
-                      const value = event.target.value
-                      setTrackedProblems((currentProblems) =>
-                        currentProblems.map((currentProblem) =>
-                          currentProblem.id === problem.id
-                            ? { ...currentProblem, notes: value }
-                            : currentProblem,
-                        ),
-                      )
-                    }}
-                    placeholder="Revision cue"
-                    value={problem.notes ?? ''}
-                  />
+                  <label className="revision-notes">
+                    <span>Revision note</span>
+                    <textarea
+                      aria-label={`Notes for ${problem.title}`}
+                      onBlur={(event) =>
+                        updateTrackedProblem(problem.id, {
+                          notes: event.target.value,
+                        })
+                      }
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setTrackedProblems((currentProblems) =>
+                          currentProblems.map((currentProblem) =>
+                            currentProblem.id === problem.id
+                              ? { ...currentProblem, notes: value }
+                              : currentProblem,
+                          ),
+                        )
+                      }}
+                      placeholder="What should you remember next time?"
+                      value={problem.notes ?? ''}
+                    />
+                  </label>
 
                   <button
                     className="icon-delete"
