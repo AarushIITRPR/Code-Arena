@@ -94,32 +94,33 @@ function getStatusClass(status) {
 
 function EmptyState({ title, body }) {
   return (
-    <div className="empty-state">
+    <div className="empty-line">
       <strong>{title}</strong>
-      <p>{body}</p>
+      <span>{body}</span>
     </div>
   )
 }
 
-function Metric({ label, value, helper }) {
+function InsightRow({ label, value }) {
   return (
-    <article className="metric">
+    <div className="insight-row">
       <span>{label}</span>
       <strong>{value}</strong>
-      <p>{helper}</p>
-    </article>
+    </div>
   )
 }
 
-function SectionHeader({ eyebrow, title, action }) {
+function TopicMeter({ label, count, maxCount }) {
   return (
-    <div className="section-header">
+    <article className="topic-meter">
       <div>
-        <p>{eyebrow}</p>
-        <h2>{title}</h2>
+        <span>{label}</span>
+        <strong>{count}</strong>
       </div>
-      {action}
-    </div>
+      <i>
+        <b style={{ width: `${(count / maxCount) * 100}%` }} />
+      </i>
+    </article>
   )
 }
 
@@ -287,11 +288,11 @@ function App() {
 
   const dashboardSummary = dashboard?.submissionSummary
   const tagEntries = useMemo(
-    () => toEntries(dashboardSummary?.solvedByTag).slice(0, 9),
+    () => toEntries(dashboardSummary?.solvedByTag).slice(0, 8),
     [dashboardSummary],
   )
   const ratingEntries = useMemo(
-    () => getRatingBand(toEntries(dashboardSummary?.solvedByRating)).slice(0, 8),
+    () => getRatingBand(toEntries(dashboardSummary?.solvedByRating)).slice(0, 6),
     [dashboardSummary],
   )
 
@@ -319,6 +320,16 @@ function App() {
     return new Set(trackedProblems.map((problem) => problem.externalId))
   }, [trackedProblems])
 
+  const todaysProblems = useMemo(() => {
+    return trackedProblems.filter((problem) => problem.queue === 'Today')
+  }, [trackedProblems])
+
+  const revisionProblems = useMemo(() => {
+    return trackedProblems.filter((problem) => {
+      return problem.status === 'Revise' || problem.queue === 'Revision'
+    })
+  }, [trackedProblems])
+
   const recommendedProblems = useMemo(() => {
     const solvedTags = new Set(tagEntries.slice(0, 4).map(([tag]) => tag))
 
@@ -330,183 +341,201 @@ function App() {
           ? 'same topic depth'
           : 'coverage gap',
       }))
-      .slice(0, 5)
+      .slice(0, 8)
   }, [problemData, tagEntries, trackedExternalIds])
 
   return (
-    <main className="codearena-shell">
-      <aside className="side-panel" aria-label="CodeArena navigation">
-        <div className="brand-row">
-          <div className="brand-mark">CA</div>
+    <main className="workspace-shell">
+      <aside className="nav-rail" aria-label="CodeArena navigation">
+        <div className="workspace-brand">
+          <span>CA</span>
           <div>
             <strong>CodeArena</strong>
-            <span>Practice OS</span>
+            <em>Placement prep</em>
           </div>
         </div>
 
-        <nav className="main-nav">
-          <a href="#overview">Overview</a>
-          <a href="#discovery">Discovery</a>
-          <a href="#tracker">Tracker</a>
-          <a href="#analytics">Analytics</a>
+        <nav className="workspace-nav">
+          <a href="#today">
+            <span>Today</span>
+            <strong>{trackedSummary.today}</strong>
+          </a>
+          <a href="#discovery">
+            <span>Discover</span>
+            <strong>{problemData?.count ?? 0}</strong>
+          </a>
+          <a href="#revision">
+            <span>Revision</span>
+            <strong>{trackedSummary.revision}</strong>
+          </a>
+          <a href="#analytics">
+            <span>Analytics</span>
+            <strong>{tagEntries.length}</strong>
+          </a>
         </nav>
 
-        <div className="sync-panel">
-          <span>Connected handle</span>
-          <strong>{activeHandle || '-'}</strong>
-          <p>{formatShortDate(dashboard?.syncedAt)}</p>
+        <div className="rail-footer">
+          <span>Synced profile</span>
+          <strong>{activeHandle}</strong>
+          <em>{formatShortDate(dashboard?.syncedAt)}</em>
         </div>
       </aside>
 
-      <section className="workbench">
-        <header className="workspace-header" id="overview">
+      <section className="main-feed">
+        <header className="feed-header">
           <div>
-            <p className="kicker">Codeforces workspace</p>
-            <h1>Placement practice</h1>
-            <p>
-              Search problems, sync submissions, and keep a compact revision log
-              from one screen.
-            </p>
+            <span className="breadcrumb">Codeforces / Workspace</span>
+            <h1>Practice inbox</h1>
           </div>
 
           <form
-            className="handle-command"
+            className="sync-command"
             onSubmit={(event) => {
               event.preventDefault()
               loadDashboard(handleInput, true)
             }}
           >
-            <label>
-              <span>Handle</span>
-              <input
-                aria-label="Codeforces handle"
-                onChange={(event) => setHandleInput(event.target.value)}
-                placeholder="tourist"
-                value={handleInput}
-              />
-            </label>
-            <button className="button dark" disabled={dashboardState.loading}>
+            <input
+              aria-label="Codeforces handle"
+              onChange={(event) => setHandleInput(event.target.value)}
+              placeholder="tourist"
+              value={handleInput}
+            />
+            <button className="solid-button" disabled={dashboardState.loading}>
               {dashboardState.loading ? (
-                <Loader2 className="spin" size={16} />
+                <Loader2 className="spin" size={15} />
               ) : (
-                <RefreshCcw size={16} />
+                <RefreshCcw size={15} />
               )}
               Sync
             </button>
           </form>
         </header>
 
-        {dashboardState.error && (
-          <div className="error-line">{dashboardState.error}</div>
+        {(dashboardState.error || problemState.error || trackedState.error) && (
+          <div className="error-stack">
+            {[dashboardState.error, problemState.error, trackedState.error]
+              .filter(Boolean)
+              .map((error) => (
+                <span key={error}>{error}</span>
+              ))}
+          </div>
         )}
 
-        <section className="metric-strip" aria-label="Practice summary">
-          <Metric
-            helper="Accepted in synced submissions"
-            label="Solved"
-            value={formatNumber(dashboardSummary?.solvedCount)}
-          />
-          <Metric
-            helper="Unique problems attempted"
-            label="Attempted"
-            value={formatNumber(dashboardSummary?.attemptedCount)}
-          />
-          <Metric
-            helper={`${trackedSummary.today} today / ${trackedSummary.revision} revision`}
-            label="Tracked"
-            value={formatNumber(trackedSummary.total)}
-          />
-          <Metric
-            helper={dashboard?.profile?.rank ?? 'Codeforces profile'}
-            label="Rating"
-            value={dashboard?.profile?.rating ?? 'Unrated'}
-          />
+        <section className="profile-line">
+          <div>
+            <span>Rating</span>
+            <strong>{dashboard?.profile?.rating ?? 'Unrated'}</strong>
+          </div>
+          <div>
+            <span>Solved</span>
+            <strong>{formatNumber(dashboardSummary?.solvedCount)}</strong>
+          </div>
+          <div>
+            <span>Attempted</span>
+            <strong>{formatNumber(dashboardSummary?.attemptedCount)}</strong>
+          </div>
+          <div>
+            <span>Tracked</span>
+            <strong>{trackedSummary.total}</strong>
+          </div>
         </section>
 
-        <div className="upper-grid" id="analytics">
-          <section className="module topic-module">
-            <SectionHeader
-              action={
-                <span className="quiet-chip">
-                  {dashboard?.fromCache ? 'cached' : 'fresh'} snapshot
-                </span>
-              }
-              eyebrow="Analytics"
-              title="Solved topics"
-            />
+        <section className="feed-section" id="today">
+          <div className="feed-title">
+            <div>
+              <span>Planner</span>
+              <h2>Today</h2>
+            </div>
+            <p>{trackedSummary.today} active problems</p>
+          </div>
 
-            {dashboardState.loading ? (
-              <EmptyState body="Fetching activity data." title="Loading profile" />
-            ) : tagEntries.length > 0 ? (
-              <div className="topic-table">
-                {tagEntries.map(([tag, count]) => {
-                  const maxCount = tagEntries[0]?.[1] || 1
+          <div className="task-list">
+            {todaysProblems.map((problem) => (
+              <article className="task-row" key={problem.id}>
+                <button
+                  className={`check-button ${getStatusClass(problem.status)}`}
+                  onClick={() =>
+                    updateTrackedProblem(problem.id, {
+                      status: problem.status === 'Solved' ? 'Attempted' : 'Solved',
+                    })
+                  }
+                  title="Toggle solved"
+                  type="button"
+                >
+                  <Check size={13} />
+                </button>
+                <div className="task-copy">
+                  <a href={problem.url} rel="noreferrer" target="_blank">
+                    {problem.title}
+                    <ExternalLink size={12} />
+                  </a>
+                  <span>
+                    {problem.externalId} / {problem.rating ?? 'Unrated'} /{' '}
+                    {getProblemTopic(problem)}
+                  </span>
+                </div>
+                <select
+                  onChange={(event) =>
+                    updateTrackedProblem(problem.id, {
+                      status: event.target.value,
+                    })
+                  }
+                  value={problem.status}
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+                <select
+                  onChange={(event) =>
+                    updateTrackedProblem(problem.id, {
+                      queue: event.target.value,
+                    })
+                  }
+                  value={problem.queue}
+                >
+                  {QUEUE_OPTIONS.map((queue) => (
+                    <option key={queue}>{queue}</option>
+                  ))}
+                </select>
+              </article>
+            ))}
 
-                  return (
-                    <article className="topic-row" key={tag}>
-                      <span>{tag}</span>
-                      <div>
-                        <i style={{ width: `${(count / maxCount) * 100}%` }} />
-                      </div>
-                      <strong>{count}</strong>
-                    </article>
-                  )
-                })}
-              </div>
-            ) : (
+            {todaysProblems.length === 0 && (
               <EmptyState
-                body="Sync a handle with public submissions to see topic data."
-                title="No topic data yet"
+                body="Track a problem from discovery and it will show up here."
+                title="Nothing planned for today"
               />
             )}
-          </section>
+          </div>
+        </section>
 
-          <aside className="module side-stack">
-            <SectionHeader eyebrow="Range" title="Rating bands" />
-
-            {ratingEntries.length > 0 ? (
-              <div className="band-list">
-                {ratingEntries.map(([band, count]) => (
-                  <article key={band}>
-                    <span>{band}</span>
-                    <strong>{count}</strong>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                body="Rated solves will be grouped here."
-                title="No rated solves"
-              />
-            )}
-          </aside>
-        </div>
-
-        <section className="module discovery-module" id="discovery">
-          <SectionHeader
-            action={
-              <button
-                className="icon-button"
-                disabled={problemState.loading}
-                onClick={refreshProblemCache}
-                title="Refresh Codeforces cache"
-                type="button"
-              >
-                <DatabaseZap size={16} />
-              </button>
-            }
-            eyebrow="Discovery"
-            title="Codeforces problemset"
-          />
+        <section className="feed-section" id="discovery">
+          <div className="feed-title">
+            <div>
+              <span>Discovery</span>
+              <h2>Find problems</h2>
+            </div>
+            <button
+              className="ghost-button"
+              disabled={problemState.loading}
+              onClick={refreshProblemCache}
+              type="button"
+            >
+              <DatabaseZap size={15} />
+              Refresh cache
+            </button>
+          </div>
 
           <form
-            className="filter-toolbar"
+            className="search-line"
             onSubmit={(event) => {
               event.preventDefault()
               loadProblems(filters)
             }}
           >
-            <label className="search-field">
+            <label>
               <span>Search</span>
               <input
                 onChange={(event) =>
@@ -515,7 +544,7 @@ function App() {
                     search: event.target.value,
                   }))
                 }
-                placeholder="watermelon, dp, 4-A"
+                placeholder="watermelon, 4-A, graphs"
                 value={filters.search}
               />
             </label>
@@ -528,7 +557,7 @@ function App() {
                     tag: event.target.value,
                   }))
                 }
-                placeholder="graphs"
+                placeholder="dp"
                 value={filters.tag}
               />
             </label>
@@ -558,265 +587,253 @@ function App() {
                 value={filters.maxRating}
               />
             </label>
-            <button className="button light" disabled={problemState.loading}>
+            <button className="solid-button" disabled={problemState.loading}>
               {problemState.loading ? (
-                <Loader2 className="spin" size={16} />
+                <Loader2 className="spin" size={15} />
               ) : (
-                <Search size={16} />
+                <Search size={15} />
               )}
               Search
             </button>
           </form>
 
-          {problemState.error && <div className="error-line">{problemState.error}</div>}
+          <div className="problem-feed">
+            {problemState.loading && (
+              <EmptyState title="Searching" body="Loading matching problems." />
+            )}
 
-          <div className="split-pane">
-            <div className="data-table problem-table">
-              <div className="table-row table-head">
-                <span>Problem</span>
-                <span>Rating</span>
-                <span>Tags</span>
-                <span />
-              </div>
+            {!problemState.loading &&
+              (problemData?.problems ?? []).map((problem) => {
+                const alreadyTracked = trackedExternalIds.has(problem.externalId)
 
-              {problemState.loading && (
-                <EmptyState title="Searching" body="Loading matching problems." />
-              )}
+                return (
+                  <article className="problem-item" key={problem.externalId}>
+                    <div className="problem-meta">
+                      <a href={problem.url} rel="noreferrer" target="_blank">
+                        {problem.title}
+                        <ExternalLink size={12} />
+                      </a>
+                      <span>
+                        {problem.externalId} / {problem.rating ?? 'Unrated'}
+                      </span>
+                    </div>
+                    <div className="tags-inline">
+                      {(problem.tags ?? []).slice(0, 3).map((tag) => (
+                        <span key={tag}>{tag}</span>
+                      ))}
+                    </div>
+                    <button
+                      className="text-button"
+                      disabled={alreadyTracked || savingId === problem.externalId}
+                      onClick={() => trackProblem(problem)}
+                      type="button"
+                    >
+                      {savingId === problem.externalId ? (
+                        <Loader2 className="spin" size={14} />
+                      ) : alreadyTracked ? (
+                        <Check size={14} />
+                      ) : (
+                        <Plus size={14} />
+                      )}
+                      {alreadyTracked ? 'Tracked' : 'Track'}
+                    </button>
+                  </article>
+                )
+              })}
 
-              {!problemState.loading &&
-                (problemData?.problems ?? []).map((problem) => {
-                  const alreadyTracked = trackedExternalIds.has(problem.externalId)
-
-                  return (
-                    <article className="table-row problem-row" key={problem.externalId}>
-                      <div>
-                        <a href={problem.url} rel="noreferrer" target="_blank">
-                          {problem.title}
-                          <ExternalLink size={13} />
-                        </a>
-                        <span>{problem.externalId}</span>
-                      </div>
-                      <strong>{problem.rating ?? 'Unrated'}</strong>
-                      <div className="tag-line">
-                        {(problem.tags ?? []).slice(0, 3).map((tag) => (
-                          <span key={tag}>{tag}</span>
-                        ))}
-                      </div>
-                      <button
-                        className="row-action"
-                        disabled={alreadyTracked || savingId === problem.externalId}
-                        onClick={() => trackProblem(problem)}
-                        title="Add to tracker"
-                        type="button"
-                      >
-                        {savingId === problem.externalId ? (
-                          <Loader2 className="spin" size={15} />
-                        ) : alreadyTracked ? (
-                          <Check size={15} />
-                        ) : (
-                          <Plus size={15} />
-                        )}
-                        {alreadyTracked ? 'Tracked' : 'Track'}
-                      </button>
-                    </article>
-                  )
-                })}
-
-              {!problemState.loading && problemData?.problems?.length === 0 && (
-                <EmptyState
-                  body="Try a wider rating range or a different tag."
-                  title="No matching problems"
-                />
-              )}
-            </div>
-
-            <aside className="recommendation-panel">
-              <h3>Suggested from search</h3>
-              <div className="suggestion-list">
-                {recommendedProblems.map((problem) => (
-                  <button
-                    className="suggestion-row"
-                    disabled={savingId === problem.externalId}
-                    key={problem.externalId}
-                    onClick={() => trackProblem(problem)}
-                    type="button"
-                  >
-                    <span>
-                      <strong>{problem.title}</strong>
-                      <em>
-                        {problem.rating ?? 'Unrated'} / {problem.reason}
-                      </em>
-                    </span>
-                    <ChevronRight size={15} />
-                  </button>
-                ))}
-
-                {recommendedProblems.length === 0 && (
-                  <EmptyState
-                    body="Search results that are not already tracked will appear here."
-                    title="No suggestions"
-                  />
-                )}
-              </div>
-            </aside>
+            {!problemState.loading && problemData?.problems?.length === 0 && (
+              <EmptyState
+                body="Try a wider rating range or another tag."
+                title="No matching problems"
+              />
+            )}
           </div>
         </section>
 
-        <section className="module tracker-module" id="tracker">
-          <SectionHeader
-            action={
-              <div className="tracker-counts">
-                <span>{trackedSummary.today} today</span>
-                <span>{trackedSummary.revision} revision</span>
-                <span>{trackedSummary.lowConfidence} low confidence</span>
-              </div>
-            }
-            eyebrow="Tracker"
-            title="Practice log"
-          />
+        <section className="feed-section" id="revision">
+          <div className="feed-title">
+            <div>
+              <span>Revision</span>
+              <h2>Mistake log</h2>
+            </div>
+            <p>{trackedSummary.lowConfidence} low-confidence items</p>
+          </div>
 
-          {trackedState.error && <div className="error-line">{trackedState.error}</div>}
-
-          <div className="tracker-list">
-            {trackedState.loading && (
-              <EmptyState title="Loading tracker" body="Fetching saved problems." />
-            )}
-
-            {!trackedState.loading &&
-              trackedProblems.map((problem) => (
-                <article className="tracker-row" key={problem.id}>
-                  <div className="tracker-title">
-                    <a href={problem.url} rel="noreferrer" target="_blank">
-                      {problem.title}
-                      <ExternalLink size={13} />
-                    </a>
-                    <span>
-                      {problem.externalId} / {problem.rating ?? 'Unrated'} /{' '}
-                      {getProblemTopic(problem)}
-                    </span>
-                  </div>
-
-                  <span className={`status-pill ${getStatusClass(problem.status)}`}>
+          <div className="revision-list">
+            {revisionProblems.map((problem) => (
+              <article className="revision-row" key={problem.id}>
+                <div className="revision-main">
+                  <span className={`status-token ${getStatusClass(problem.status)}`}>
                     {problem.status}
                   </span>
+                  <div>
+                    <a href={problem.url} rel="noreferrer" target="_blank">
+                      {problem.title}
+                      <ExternalLink size={12} />
+                    </a>
+                    <span>
+                      {problem.mistakeType || 'No mistake type'} / Confidence{' '}
+                      {problem.confidence ?? '-'}
+                    </span>
+                  </div>
+                </div>
 
-                  <label>
-                    <span>Status</span>
-                    <select
-                      onChange={(event) =>
-                        updateTrackedProblem(problem.id, {
-                          status: event.target.value,
-                        })
-                      }
-                      value={problem.status}
-                    >
-                      {STATUS_OPTIONS.map((status) => (
-                        <option key={status}>{status}</option>
-                      ))}
-                    </select>
-                  </label>
+                <select
+                  onChange={(event) =>
+                    updateTrackedProblem(problem.id, {
+                      mistakeType: event.target.value || null,
+                    })
+                  }
+                  value={problem.mistakeType ?? ''}
+                >
+                  {MISTAKE_OPTIONS.map((mistake) => (
+                    <option key={mistake} value={mistake}>
+                      {mistake || '-'}
+                    </option>
+                  ))}
+                </select>
 
-                  <label>
-                    <span>Queue</span>
-                    <select
-                      onChange={(event) =>
-                        updateTrackedProblem(problem.id, {
-                          queue: event.target.value,
-                        })
-                      }
-                      value={problem.queue}
-                    >
-                      {QUEUE_OPTIONS.map((queue) => (
-                        <option key={queue}>{queue}</option>
-                      ))}
-                    </select>
-                  </label>
+                <select
+                  onChange={(event) =>
+                    updateTrackedProblem(problem.id, {
+                      confidence: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    })
+                  }
+                  value={problem.confidence ?? ''}
+                >
+                  <option value="">-</option>
+                  {[1, 2, 3, 4, 5].map((score) => (
+                    <option key={score} value={score}>
+                      {score}
+                    </option>
+                  ))}
+                </select>
 
-                  <label>
-                    <span>Confidence</span>
-                    <select
-                      onChange={(event) =>
-                        updateTrackedProblem(problem.id, {
-                          confidence: event.target.value
-                            ? Number(event.target.value)
-                            : null,
-                        })
-                      }
-                      value={problem.confidence ?? ''}
-                    >
-                      <option value="">-</option>
-                      {[1, 2, 3, 4, 5].map((score) => (
-                        <option key={score} value={score}>
-                          {score}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                <textarea
+                  aria-label={`Notes for ${problem.title}`}
+                  onBlur={(event) =>
+                    updateTrackedProblem(problem.id, {
+                      notes: event.target.value,
+                    })
+                  }
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setTrackedProblems((currentProblems) =>
+                      currentProblems.map((currentProblem) =>
+                        currentProblem.id === problem.id
+                          ? { ...currentProblem, notes: value }
+                          : currentProblem,
+                      ),
+                    )
+                  }}
+                  placeholder="Revision cue"
+                  value={problem.notes ?? ''}
+                />
 
-                  <label>
-                    <span>Mistake</span>
-                    <select
-                      onChange={(event) =>
-                        updateTrackedProblem(problem.id, {
-                          mistakeType: event.target.value || null,
-                        })
-                      }
-                      value={problem.mistakeType ?? ''}
-                    >
-                      {MISTAKE_OPTIONS.map((mistake) => (
-                        <option key={mistake} value={mistake}>
-                          {mistake || '-'}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                <button
+                  className="icon-delete"
+                  disabled={savingId === problem.id}
+                  onClick={() => deleteTrackedProblem(problem.id)}
+                  title="Remove from tracker"
+                  type="button"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </article>
+            ))}
 
-                  <textarea
-                    aria-label={`Notes for ${problem.title}`}
-                    onBlur={(event) =>
-                      updateTrackedProblem(problem.id, {
-                        notes: event.target.value,
-                      })
-                    }
-                    onChange={(event) => {
-                      const value = event.target.value
-                      setTrackedProblems((currentProblems) =>
-                        currentProblems.map((currentProblem) =>
-                          currentProblem.id === problem.id
-                            ? { ...currentProblem, notes: value }
-                            : currentProblem,
-                        ),
-                      )
-                    }}
-                    placeholder="Mistake note or revision cue"
-                    value={problem.notes ?? ''}
-                  />
-
-                  <button
-                    className="icon-button danger"
-                    disabled={savingId === problem.id}
-                    onClick={() => deleteTrackedProblem(problem.id)}
-                    title="Remove from tracker"
-                    type="button"
-                  >
-                    {savingId === problem.id ? (
-                      <Loader2 className="spin" size={15} />
-                    ) : (
-                      <Trash2 size={15} />
-                    )}
-                  </button>
-                </article>
-              ))}
-
-            {!trackedState.loading && trackedProblems.length === 0 && (
+            {revisionProblems.length === 0 && (
               <EmptyState
-                body="Track a problem from discovery to start building your practice plan."
-                title="No tracked problems"
+                body="Mark a tracked problem as Revise to create your revision list."
+                title="Revision list is clear"
               />
             )}
           </div>
         </section>
       </section>
+
+      <aside className="insights-rail" id="analytics">
+        <section className="profile-cardless">
+          <span className="rail-label">Profile</span>
+          <h2>{dashboard?.profile?.handle ?? activeHandle}</h2>
+          <p>{dashboard?.profile?.rank ?? 'Codeforces user'}</p>
+          <InsightRow
+            label="Max rating"
+            value={dashboard?.profile?.maxRating ?? '-'}
+          />
+          <InsightRow
+            label="Unsolved attempts"
+            value={dashboardSummary?.unsolvedAttemptedCount ?? 0}
+          />
+          <InsightRow label="Tracked solved" value={trackedSummary.solved} />
+        </section>
+
+        <section className="rail-section">
+          <div className="rail-heading">
+            <span>Topics</span>
+            <strong>{tagEntries.length}</strong>
+          </div>
+          <div className="topic-stack">
+            {tagEntries.map(([tag, count]) => (
+              <TopicMeter
+                count={count}
+                key={tag}
+                label={tag}
+                maxCount={tagEntries[0]?.[1] || 1}
+              />
+            ))}
+            {tagEntries.length === 0 && (
+              <EmptyState body="Sync a handle first." title="No topic data" />
+            )}
+          </div>
+        </section>
+
+        <section className="rail-section">
+          <div className="rail-heading">
+            <span>Ratings</span>
+            <strong>{ratingEntries.length}</strong>
+          </div>
+          <div className="rating-stack">
+            {ratingEntries.map(([band, count]) => (
+              <a href="#discovery" key={band}>
+                <span>{band}</span>
+                <strong>{count}</strong>
+                <ChevronRight size={13} />
+              </a>
+            ))}
+            {ratingEntries.length === 0 && (
+              <EmptyState body="Rated solves appear here." title="No rating data" />
+            )}
+          </div>
+        </section>
+
+        <section className="rail-section">
+          <div className="rail-heading">
+            <span>Suggested</span>
+            <strong>{recommendedProblems.length}</strong>
+          </div>
+          <div className="suggestion-stack">
+            {recommendedProblems.map((problem) => (
+              <button
+                disabled={savingId === problem.externalId}
+                key={problem.externalId}
+                onClick={() => trackProblem(problem)}
+                type="button"
+              >
+                <span>
+                  <strong>{problem.title}</strong>
+                  <em>
+                    {problem.rating ?? 'Unrated'} / {problem.reason}
+                  </em>
+                </span>
+                <Plus size={14} />
+              </button>
+            ))}
+          </div>
+        </section>
+      </aside>
     </main>
   )
 }
