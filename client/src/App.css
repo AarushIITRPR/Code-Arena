@@ -88,7 +88,7 @@ button:disabled {
     var(--sidebar);
   border-right: 1px solid var(--line);
   display: grid;
-  grid-template-rows: auto auto auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
   gap: 22px;
   min-height: 0;
   min-width: 0;
@@ -247,7 +247,7 @@ button:disabled {
     linear-gradient(90deg, rgba(255, 255, 255, 0.018), transparent 30rem),
     var(--document);
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
   overflow: auto;
@@ -677,62 +677,6 @@ button:disabled {
   color: var(--text);
 }
 
-.linked-mentions {
-  background: #101315;
-  border: 1px solid #2b3136;
-  border-radius: 8px;
-  bottom: 44px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
-  min-width: 250px;
-  padding: 12px;
-  position: fixed;
-  right: calc((100vw - min(1220px, calc(100vw - 32px))) / 2 + 34px);
-  z-index: 5;
-}
-
-.linked-mentions header {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.linked-mentions header span {
-  color: #dfe2dc;
-  font-size: 13px;
-  font-weight: 720;
-}
-
-.linked-mentions header button {
-  background: transparent;
-  border: 0;
-  color: var(--faint);
-}
-
-.linked-mentions p {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-  margin: 4px 0;
-}
-
-.vault-statusbar {
-  align-items: center;
-  background: rgba(17, 20, 22, 0.92);
-  border-top: 1px solid var(--line-soft);
-  bottom: 0;
-  color: var(--muted);
-  display: flex;
-  font-size: 12px;
-  gap: 12px;
-  justify-content: flex-end;
-  left: 218px;
-  min-height: 34px;
-  padding: 0 18px;
-  position: absolute;
-  right: 0;
-}
-
 .error-strip {
   background: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.24);
@@ -775,9 +719,6 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .vault-statusbar {
-    left: 196px;
-  }
 }
 
 @media (max-width: 820px) {
@@ -845,19 +786,6 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .linked-mentions {
-    bottom: auto;
-    margin-bottom: 58px;
-    min-width: 0;
-    position: static;
-  }
-
-  .vault-statusbar {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    left: 0;
-    position: fixed;
-  }
 }
 
 @media (max-width: 520px) {

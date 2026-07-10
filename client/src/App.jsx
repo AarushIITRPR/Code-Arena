@@ -4,14 +4,12 @@ import {
   Check,
   ChevronRight,
   Circle,
-  Code2,
   DatabaseZap,
   ExternalLink,
   FileText,
   Folder,
   Hash,
   Loader2,
-  Pencil,
   Plus,
   RefreshCcw,
   Search,
@@ -339,7 +337,7 @@ function ProblemNoteCard({
 
       <footer>
         <span>{formatShortDate(problem.updatedAt || problem.createdAt)}</span>
-        {mode === 'discovery' ? (
+        {(mode === 'discovery' || mode === 'topic') && (
           <button
             disabled={disabled || isTracked}
             onClick={() => onTrack(problem)}
@@ -348,12 +346,11 @@ function ProblemNoteCard({
             <Plus size={13} />
             {isTracked ? 'Saved' : 'Add'}
           </button>
-        ) : mode === 'tracked' || mode === 'revision' ? (
+        )}
+        {(mode === 'tracked' || mode === 'revision') && (
           <button disabled={disabled} onClick={() => onDelete(problem.id)} type="button">
             <Trash2 size={13} />
           </button>
-        ) : (
-          <span>linked note</span>
         )}
       </footer>
     </article>
@@ -620,20 +617,6 @@ function App() {
     )
   }, [focusTopic, problemData])
 
-  const recommendedProblems = useMemo(() => {
-    const solvedTags = new Set(tagEntries.slice(0, 4).map(([tag]) => tag))
-
-    return (problemData?.problems ?? [])
-      .filter((problem) => !trackedExternalIds.has(problem.externalId))
-      .map((problem) => ({
-        ...problem,
-        reason: solvedTags.has(getProblemTopic(problem))
-          ? 'same topic depth'
-          : 'coverage gap',
-      }))
-      .slice(0, 8)
-  }, [problemData, tagEntries, trackedExternalIds])
-
   const currentTopicSolved =
     sidebarTopics.find(([topic]) => topic === focusTopic)?.[1] ?? 0
   const topicAccuracy = dashboardSummary?.attemptedCount
@@ -749,10 +732,6 @@ function App() {
     ]
   }
 
-  const backlinks = [
-    ...revisionProblems.slice(0, 2).map((problem) => problem.title),
-    ...recommendedProblems.slice(0, 2).map((problem) => problem.title),
-  ]
   const currentPage = Number(problemData?.page ?? filters.page)
   const totalPages = Number(problemData?.totalPages ?? 1)
   const visiblePages = getVisiblePages(currentPage, totalPages)
@@ -771,12 +750,6 @@ function App() {
             count={trackedSummary.inbox}
             icon={FileText}
             label="Inbox"
-            onClick={() => navigateToView('inbox')}
-          />
-          <VaultButton
-            active={activeView === 'inbox'}
-            icon={Circle}
-            label="Today"
             onClick={() => navigateToView('inbox')}
           />
           <VaultButton
@@ -826,12 +799,6 @@ function App() {
             label="Revision Log"
             onClick={() => navigateToView('revision')}
           />
-        </section>
-
-        <section className="vault-nav-section">
-          <h2>Assets</h2>
-          <VaultButton icon={FileText} label="Templates" onClick={() => {}} />
-          <VaultButton icon={Code2} label="Snippets" onClick={() => {}} />
         </section>
 
         <footer className="vault-account">
@@ -886,9 +853,6 @@ function App() {
               type="button"
             >
               <DatabaseZap size={15} />
-            </button>
-            <button className="icon-button" title="Edit note" type="button">
-              <Pencil size={15} />
             </button>
           </div>
         </header>
@@ -1065,12 +1029,7 @@ function App() {
                   mode={documentMode}
                   onDelete={deleteTrackedProblem}
                   onDraftNote={draftProblemNote}
-                  onTrack={(selectedProblem) =>
-                    trackProblem(
-                      selectedProblem,
-                      activeView === 'revision' ? 'Revision' : 'Today',
-                    )
-                  }
+                  onTrack={(selectedProblem) => trackProblem(selectedProblem)}
                   onUpdate={updateTrackedProblem}
                   problem={problem}
                   tracked={trackedExternalIds.has(problem.externalId)}
@@ -1080,24 +1039,6 @@ function App() {
           )}
         </section>
 
-        <aside className="linked-mentions">
-          <header>
-            <span>Linked mentions</span>
-            <button type="button">x</button>
-          </header>
-          {backlinks.length === 0 ? (
-            <p>No backlinks yet.</p>
-          ) : (
-            backlinks.map((link) => <p key={link}>- [[{link}]]</p>)
-          )}
-        </aside>
-
-        <footer className="vault-statusbar">
-          <span>{backlinks.length} backlinks</span>
-          <span>{documentCards.length * 64 + 128} words</span>
-          <span>{formatNumber(documentCards.length * 420 + 1204)} characters</span>
-          <span>synced {formatShortDate(dashboard?.syncedAt)}</span>
-        </footer>
       </section>
     </main>
   )
