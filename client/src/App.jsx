@@ -136,12 +136,15 @@ function getStatusClass(status) {
 }
 
 function getRatingAccent(rating) {
-  if (rating === null || rating === undefined) return '#a8a29e'
-  if (rating < 1200) return '#16a34a'
-  if (rating < 1600) return '#2563eb'
-  if (rating < 2000) return '#7c3aed'
-  if (rating < 2400) return '#f59e0b'
-  return '#dc2626'
+  if (rating === null || rating === undefined) return '#808080'
+  if (rating < 1200) return '#808080'
+  if (rating < 1400) return '#008000'
+  if (rating < 1600) return '#03a89e'
+  if (rating < 1900) return '#0000ff'
+  if (rating < 2100) return '#aa00aa'
+  if (rating < 2400) return '#ff8c00'
+  if (rating < 3000) return '#ff0000'
+  return '#aa0000'
 }
 
 function formatTagSummary(tags) {
