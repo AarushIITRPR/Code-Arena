@@ -19,6 +19,53 @@ Students preparing for online assessments, competitive programming practice, and
 - Reflection fields such as notes, mistake type, and confidence score.
 - Analytics for rating-band progress, weak topics, attempted vs solved counts, and revision list.
 
+## Implemented Features
+
+- React dashboard for syncing a Codeforces handle and viewing solved count, attempted count, current rating, topic distribution, and rating-band distribution.
+- Codeforces problem discovery with title/id search, tag filter, rating range filter, cache refresh, and recommended picks from the active search.
+- MongoDB-backed practice tracker for saving problems, changing status/queue, recording mistake notes, assigning confidence scores, and deleting tracked items.
+- Express REST API layer that keeps external Codeforces calls separate from frontend-facing routes.
+- Mongoose schemas for cached Codeforces problem metadata, user dashboard snapshots, and tracked practice problems.
+
+## Tech Stack
+
+- Frontend: React, Vite, CSS, lucide-react
+- Backend: Node.js, Express.js
+- Database: MongoDB with Mongoose
+- External API: Codeforces public API
+
+## Quick Start
+
+Install dependencies once in both apps:
+
+```text
+cd server
+pnpm install
+
+cd ../client
+pnpm install
+```
+
+Start the backend:
+
+```text
+cd server
+pnpm run dev
+```
+
+Start the frontend:
+
+```text
+cd client
+pnpm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
 ## Out Of Scope For V1
 
 - Online judge or code execution.
@@ -54,6 +101,8 @@ MONGODB_URI
 ```
 
 For local development, copy `server/.env.example` to `server/.env` and use either a local MongoDB URI or a MongoDB Atlas connection string.
+
+If `MONGODB_URI` is not provided and local MongoDB is unavailable, the backend starts an in-memory development database so the app can still be demoed locally. Use a real MongoDB URI when you want data to persist across restarts.
 
 ## Codeforces API Data Map
 
@@ -383,13 +432,16 @@ Weak Topic
 Later
 ```
 
-## Planned Backend Routes
+## Backend Routes
 
 ```text
 GET    /api/health
 
+GET    /api/codeforces/dashboard/:handle
+POST   /api/codeforces/dashboard/:handle/refresh
 GET    /api/codeforces/profile/:handle
 GET    /api/codeforces/problems
+POST   /api/codeforces/problems/refresh
 GET    /api/codeforces/submissions/:handle?count=500
 GET    /api/codeforces/rating/:handle
 
@@ -397,13 +449,14 @@ GET    /api/problems
 POST   /api/problems
 PATCH  /api/problems/:id
 DELETE /api/problems/:id
-
-GET    /api/analytics
 ```
 
 Current Codeforces route behavior:
 
 - `/api/codeforces/problems` returns normalized `CodeforcesProblem` objects and supports `search`, `tag`, `minRating`, `maxRating`, and `limit`.
+- `/api/codeforces/problems/refresh` refreshes the MongoDB-backed Codeforces problem cache.
+- `/api/codeforces/dashboard/:handle` returns a cached user snapshot when available.
+- `/api/codeforces/dashboard/:handle/refresh` fetches fresh Codeforces profile, submissions, and rating data, then stores a new snapshot.
 - `/api/codeforces/profile/:handle` returns normalized profile metadata from `user.info`.
 - `/api/codeforces/submissions/:handle` returns recent normalized submissions plus summary counts and solved breakdowns from `user.status`.
 - `/api/codeforces/rating/:handle` returns normalized rating history from `user.rating`.

@@ -32,7 +32,7 @@ async function callCodeforces(methodName, params = {}) {
 }
 
 function createProblemUrl(contestId, problemIndex) {
-  return `https://codeforces.com/problemset/problem/${contestId}/${encodeURIComponent(problemIndex)}`
+  return `https://codeforces.com/problemset/problem/${contestId}/${problemIndex}`
 }
 
 function normalizeCodeforcesProblem(problem) {
