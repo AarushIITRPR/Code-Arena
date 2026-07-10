@@ -894,35 +894,18 @@ function App() {
                       </div>
 
                       <p className="problem-card-meta">
-                        <span>{problem.rating ?? 'Unrated'}</span> /{' '}
+                        <span className="problem-card-id">
+                          {problem.externalId}
+                        </span>
+                        <span className="meta-separator">&middot;</span>
+                        <span className="problem-card-rating">
+                          {problem.rating ?? 'Unrated'}
+                        </span>
+                        <span className="meta-separator">&middot;</span>
                         {problem.tags?.slice(0, 2).join(', ') || 'untagged'}
                       </p>
 
-                      <div className="problem-properties">
-                        <div>
-                          <span>Rating</span>
-                          <strong>{problem.rating ?? 'Unrated'}</strong>
-                        </div>
-                        <div>
-                          <span>Contest</span>
-                          <strong>{problem.contestId}</strong>
-                        </div>
-                        <div>
-                          <span>Tags</span>
-                          <strong>
-                            {problem.tags?.slice(0, 2).join(', ') || 'untagged'}
-                          </strong>
-                        </div>
-                      </div>
-
-                      <div className="tags-inline card-tags">
-                        {(problem.tags ?? []).slice(0, 3).map((tag) => (
-                          <span key={tag}>{tag}</span>
-                        ))}
-                      </div>
-
                       <footer>
-                        <span>{problem.externalId}</span>
                         <button
                           className="text-button"
                           disabled={alreadyTracked || savingId === problem.externalId}
