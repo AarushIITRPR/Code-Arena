@@ -103,6 +103,19 @@ function parseInteger(value) {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+function normalizeTagFilters(value) {
+  const values = Array.isArray(value) ? value : [value]
+
+  return [
+    ...new Set(
+      values
+        .flatMap((tag) => String(tag ?? '').split(','))
+        .map((tag) => tag.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ]
+}
+
 function normalizeFilters(filters) {
   const minRating = parseInteger(filters.minRating)
   const maxRating = parseInteger(filters.maxRating)
@@ -111,7 +124,7 @@ function normalizeFilters(filters) {
 
   return {
     search: typeof filters.search === 'string' ? filters.search.trim() : '',
-    tag: typeof filters.tag === 'string' ? filters.tag.trim().toLowerCase() : '',
+    tags: normalizeTagFilters(filters.tags ?? filters.tag),
     minRating,
     maxRating,
     limit: Math.min(Math.max(requestedLimit ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
@@ -146,8 +159,12 @@ function buildProblemCacheQuery(filters) {
     ]
   }
 
-  if (filters.tag) {
-    query.tags = filters.tag
+  if (filters.tags.length === 1) {
+    query.tags = filters.tags[0]
+  }
+
+  if (filters.tags.length > 1) {
+    query.tags = { $all: filters.tags }
   }
 
   if (filters.minRating !== null || filters.maxRating !== null) {

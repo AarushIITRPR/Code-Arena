@@ -38,6 +38,35 @@ const MISTAKE_OPTIONS = [
   'Could not derive approach',
 ]
 const CHART_COLORS = ['#111111', '#57534e', '#a8a29e', '#d6d3d1']
+const PROBLEM_PAGE_SIZE = 40
+const CODEFORCES_TAG_OPTIONS = [
+  'implementation',
+  'math',
+  'greedy',
+  'dp',
+  'data structures',
+  'brute force',
+  'constructive algorithms',
+  'graphs',
+  'sortings',
+  'binary search',
+  'dfs and similar',
+  'trees',
+  'strings',
+  'number theory',
+  'combinatorics',
+  'bitmasks',
+  'two pointers',
+  'dsu',
+  'geometry',
+  'shortest paths',
+  'probabilities',
+  'divide and conquer',
+  'hashing',
+  'games',
+  'flows',
+  'matrices',
+]
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
@@ -106,6 +135,22 @@ function getStatusClass(status) {
   return status.toLowerCase().replaceAll(' ', '-')
 }
 
+function getRatingAccent(rating) {
+  if (rating === null || rating === undefined) return '#a8a29e'
+  if (rating < 1200) return '#16a34a'
+  if (rating < 1600) return '#2563eb'
+  if (rating < 2000) return '#7c3aed'
+  if (rating < 2400) return '#f59e0b'
+  return '#dc2626'
+}
+
+function formatTagSummary(tags) {
+  if (tags.length === 0) return 'Choose tags'
+  if (tags.length <= 2) return tags.join(', ')
+
+  return `${tags.slice(0, 2).join(', ')} +${tags.length - 2}`
+}
+
 function getInitialView() {
   const hashView = window.location.hash.replace('#', '')
   return VIEW_OPTIONS.includes(hashView) ? hashView : 'inbox'
@@ -129,6 +174,16 @@ function EmptyState({ title, body }) {
       <strong>{title}</strong>
       <span>{body}</span>
     </div>
+  )
+}
+
+function CodeforcesIcon() {
+  return (
+    <span className="codeforces-icon" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
   )
 }
 
@@ -181,10 +236,9 @@ function App() {
 
   const [filters, setFilters] = useState({
     search: '',
-    tag: '',
+    tags: [],
     minRating: '800',
     maxRating: '1600',
-    limit: '40',
     page: '1',
   })
   const [problemData, setProblemData] = useState(null)
@@ -227,10 +281,20 @@ function App() {
     const params = new URLSearchParams()
 
     Object.entries(nextFilters).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          if (String(item).trim()) {
+            params.append(key, String(item).trim())
+          }
+        })
+        return
+      }
+
       if (String(value).trim()) {
         params.set(key, String(value).trim())
       }
     })
+    params.set('limit', String(PROBLEM_PAGE_SIZE))
 
     try {
       const data = await apiRequest(`/api/codeforces/problems?${params}`)
@@ -354,6 +418,24 @@ function App() {
     }
     setFilters(nextFilters)
     loadProblems(nextFilters)
+  }
+
+  function toggleProblemTag(tag) {
+    setFilters((currentFilters) => {
+      const selectedTags = new Set(currentFilters.tags)
+
+      if (selectedTags.has(tag)) {
+        selectedTags.delete(tag)
+      } else {
+        selectedTags.add(tag)
+      }
+
+      return {
+        ...currentFilters,
+        tags: [...selectedTags],
+        page: '1',
+      }
+    })
   }
 
   const dashboardSummary = dashboard?.submissionSummary
@@ -695,20 +777,43 @@ function App() {
                   value={filters.search}
                 />
               </label>
-              <label>
-                <span>Tag</span>
-                <input
-                  onChange={(event) =>
-                    setFilters((currentFilters) => ({
-                      ...currentFilters,
-                      tag: event.target.value,
-                      page: '1',
-                    }))
-                  }
-                  placeholder="dp"
-                  value={filters.tag}
-                />
-              </label>
+              <div className="tag-filter">
+                <span>Tags</span>
+                <details className="tag-multiselect">
+                  <summary>{formatTagSummary(filters.tags)}</summary>
+                  <div className="tag-menu">
+                    <div className="tag-menu-head">
+                      <strong>Codeforces tags</strong>
+                      <button
+                        disabled={filters.tags.length === 0}
+                        onClick={() =>
+                          setFilters((currentFilters) => ({
+                            ...currentFilters,
+                            tags: [],
+                            page: '1',
+                          }))
+                        }
+                        type="button"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="tag-menu-options">
+                      {CODEFORCES_TAG_OPTIONS.map((tag) => (
+                        <label key={tag}>
+                          <input
+                            checked={filters.tags.includes(tag)}
+                            onChange={() => toggleProblemTag(tag)}
+                            type="checkbox"
+                            value={tag}
+                          />
+                          <span>{tag}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </details>
+              </div>
               <label>
                 <span>Min</span>
                 <input
@@ -736,26 +841,6 @@ function App() {
                   }
                   value={filters.maxRating}
                 />
-              </label>
-              <label>
-                <span>Rows</span>
-                <select
-                  onChange={(event) => {
-                    const nextFilters = {
-                      ...filters,
-                      limit: event.target.value,
-                      page: '1',
-                    }
-                    setFilters(nextFilters)
-                    loadProblems(nextFilters)
-                  }}
-                  value={filters.limit}
-                >
-                  <option value="20">20</option>
-                  <option value="40">40</option>
-                  <option value="100">100</option>
-                  <option value="200">200</option>
-                </select>
               </label>
               <button className="solid-button" disabled={problemState.loading}>
                 {problemState.loading ? (
@@ -787,17 +872,29 @@ function App() {
                   const alreadyTracked = trackedExternalIds.has(problem.externalId)
 
                   return (
-                    <article className="problem-card" key={problem.externalId}>
+                    <article
+                      className="problem-card"
+                      key={problem.externalId}
+                      style={{
+                        '--problem-accent': getRatingAccent(problem.rating),
+                      }}
+                    >
                       <div className="problem-card-head">
-                        <a href={problem.url} rel="noreferrer" target="_blank">
-                          {problem.externalId} -{' '}
-                          {problem.title}
-                          <ExternalLink size={12} />
+                        <h3>{problem.title}</h3>
+                        <a
+                          aria-label={`Open ${problem.externalId} on Codeforces`}
+                          className="codeforces-link"
+                          href={problem.url}
+                          rel="noreferrer"
+                          target="_blank"
+                          title="Open on Codeforces"
+                        >
+                          <CodeforcesIcon />
                         </a>
                       </div>
 
                       <p className="problem-card-meta">
-                        {problem.rating ?? 'Unrated'} /{' '}
+                        <span>{problem.rating ?? 'Unrated'}</span> /{' '}
                         {problem.tags?.slice(0, 2).join(', ') || 'untagged'}
                       </p>
 
