@@ -706,7 +706,17 @@ function App() {
               </button>
             </form>
 
-            <div className="problem-feed">
+            <div className="problem-results-title">
+              <h2>Search Results</h2>
+              {problemData && (
+                <span>
+                  {problemData.count} shown /{' '}
+                  {formatNumber(problemData.totalMatched)} matched
+                </span>
+              )}
+            </div>
+
+            <div className="problem-card-grid">
               {problemState.loading && (
                 <EmptyState title="Searching" body="Loading matching problems." />
               )}
@@ -716,36 +726,55 @@ function App() {
                   const alreadyTracked = trackedExternalIds.has(problem.externalId)
 
                   return (
-                    <article className="problem-item" key={problem.externalId}>
-                      <div className="problem-meta">
+                    <article className="problem-card" key={problem.externalId}>
+                      <div className="problem-card-head">
                         <a href={problem.url} rel="noreferrer" target="_blank">
+                          {problem.externalId} -{' '}
                           {problem.title}
                           <ExternalLink size={12} />
                         </a>
+                      </div>
+
+                      <p className="problem-card-meta">
+                        {problem.rating ?? 'Unrated'} /{' '}
+                        {problem.tags?.slice(0, 2).join(', ') || 'untagged'}
+                      </p>
+
+                      <div className="problem-card-facts">
                         <span>
-                          {problem.externalId} / {problem.rating ?? 'Unrated'}
+                          <strong>Source</strong>
+                          {problem.platform}
+                        </span>
+                        <span>
+                          <strong>Index</strong>
+                          {problem.problemIndex}
                         </span>
                       </div>
-                      <div className="tags-inline">
+
+                      <div className="tags-inline card-tags">
                         {(problem.tags ?? []).slice(0, 3).map((tag) => (
                           <span key={tag}>{tag}</span>
                         ))}
                       </div>
-                      <button
-                        className="text-button"
-                        disabled={alreadyTracked || savingId === problem.externalId}
-                        onClick={() => trackProblem(problem, 'Today')}
-                        type="button"
-                      >
-                        {savingId === problem.externalId ? (
-                          <Loader2 className="spin" size={14} />
-                        ) : alreadyTracked ? (
-                          <Check size={14} />
-                        ) : (
-                          <Plus size={14} />
-                        )}
-                        {alreadyTracked ? 'Tracked' : 'Add'}
-                      </button>
+
+                      <footer>
+                        <span>{problem.externalId}</span>
+                        <button
+                          className="text-button"
+                          disabled={alreadyTracked || savingId === problem.externalId}
+                          onClick={() => trackProblem(problem, 'Today')}
+                          type="button"
+                        >
+                          {savingId === problem.externalId ? (
+                            <Loader2 className="spin" size={14} />
+                          ) : alreadyTracked ? (
+                            <Check size={14} />
+                          ) : (
+                            <Plus size={14} />
+                          )}
+                          {alreadyTracked ? 'Tracked' : 'Add'}
+                        </button>
+                      </footer>
                     </article>
                   )
                 })}

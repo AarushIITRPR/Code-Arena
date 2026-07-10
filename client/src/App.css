@@ -358,14 +358,12 @@ button:disabled {
 }
 
 .task-list,
-.problem-feed,
 .revision-list {
   border-top: 1px solid var(--line);
   display: grid;
 }
 
 .task-row,
-.problem-item,
 .revision-row {
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -377,10 +375,6 @@ button:disabled {
 
 .task-row {
   grid-template-columns: 30px minmax(220px, 1fr) 130px 130px;
-}
-
-.problem-item {
-  grid-template-columns: minmax(230px, 1fr) minmax(200px, 0.8fr) 92px;
 }
 
 .pagination-bar {
@@ -476,8 +470,112 @@ button:disabled {
 
 .task-copy span,
 .problem-meta span,
-.revision-main span,
-.problem-item > span {
+.revision-main span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.problem-card-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.problem-results-title {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+}
+
+.problem-results-title h2 {
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.problem-results-title span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.problem-card-grid .empty-line {
+  grid-column: 1 / -1;
+}
+
+.problem-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 218px;
+  padding: 16px;
+}
+
+.problem-card:hover {
+  border-color: var(--line-dark);
+}
+
+.problem-card-head a {
+  align-items: center;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 15px;
+  font-weight: 700;
+  gap: 5px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.problem-card-head a:hover {
+  text-decoration: underline;
+}
+
+.problem-card-meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.problem-card-facts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.problem-card-facts span {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+}
+
+.problem-card-facts strong {
+  color: var(--text);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.card-tags {
+  margin-top: auto;
+}
+
+.problem-card footer {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding-top: 2px;
+}
+
+.problem-card footer > span {
   color: var(--muted);
   font-size: 12px;
 }
@@ -798,7 +896,6 @@ button:disabled {
   }
 
   .task-row,
-  .problem-item,
   .revision-row {
     align-items: stretch;
     grid-template-columns: 1fr;
