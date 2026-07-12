@@ -12,28 +12,6 @@ const TRACKING_FIELDS = [
   'confidence',
 ]
 
-function buildProblemFilters(query) {
-  const filters = {}
-
-  if (query.status) {
-    filters.status = query.status
-  }
-
-  if (query.queue) {
-    filters.queue = query.queue
-  }
-
-  if (query.tag) {
-    filters.tags = query.tag
-  }
-
-  if (query.search) {
-    filters.title = { $regex: query.search, $options: 'i' }
-  }
-
-  return filters
-}
-
 function pickAllowedFields(source, allowedFields) {
   return Object.fromEntries(
     allowedFields
@@ -72,8 +50,7 @@ function handleRouteError(error, response) {
 
 router.get('/', async (request, response) => {
   try {
-    const filters = buildProblemFilters(request.query)
-    const problems = await TrackedProblem.find(filters).sort({ updatedAt: -1 })
+    const problems = await TrackedProblem.find().sort({ updatedAt: -1 })
 
     response.json({
       count: problems.length,

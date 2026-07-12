@@ -21,28 +21,10 @@ const codeforcesUserSnapshotSchema = new mongoose.Schema(
       type: [mongoose.Schema.Types.Mixed],
       default: [],
     },
-    ratingHistory: {
-      type: [mongoose.Schema.Types.Mixed],
-      default: [],
-    },
-    fetchedSubmissionCount: {
-      type: Number,
-      required: true,
-    },
     syncedAt: {
       type: Date,
       required: true,
       default: Date.now,
-    },
-  },
-  {
-    timestamps: true,
-    toJSON: {
-      transform(document, returnedObject) {
-        returnedObject.id = returnedObject._id.toString()
-        delete returnedObject._id
-        delete returnedObject.__v
-      },
     },
   },
 )

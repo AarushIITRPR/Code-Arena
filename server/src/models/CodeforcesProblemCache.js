@@ -38,10 +38,6 @@ const codeforcesProblemCacheSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    contestDivision: {
-      type: String,
-      default: null,
-    },
     problemIndex: {
       type: String,
       required: true,
@@ -53,19 +49,7 @@ const codeforcesProblemCacheSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  {
-    timestamps: true,
-    toJSON: {
-      transform(document, returnedObject) {
-        returnedObject.id = returnedObject._id.toString()
-        delete returnedObject._id
-        delete returnedObject.__v
-      },
-    },
-  },
 )
-
-codeforcesProblemCacheSchema.index({ title: 'text', externalId: 'text' })
 
 export const CodeforcesProblemCache = mongoose.model(
   'CodeforcesProblemCache',

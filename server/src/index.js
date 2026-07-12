@@ -2,13 +2,9 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { connectToDatabase } from './db/connectToDatabase.js'
-import { dashboardData } from './data.js'
 import trackedProblemsRouter from './routes/trackedProblemsRoutes.js'
 import {
   getCodeforcesProblems,
-  getCodeforcesProfile,
-  getCodeforcesRating,
-  getCodeforcesSubmissions,
   getCodeforcesUserSnapshot,
   refreshCodeforcesProblemCache,
   refreshCodeforcesUserSnapshot,
@@ -22,10 +18,6 @@ app.use(express.json())
 
 app.get('/api/health', (request, response) => {
   response.json({ status: 'ok' })
-})
-
-app.get('/api/dashboard', (request, response) => {
-  response.json(dashboardData)
 })
 
 app.use('/api/problems', trackedProblemsRouter)
@@ -79,45 +71,6 @@ app.post('/api/codeforces/dashboard/:handle/refresh', async (request, response) 
   } catch (error) {
     response.status(502).json({
       error: 'Failed to refresh Codeforces dashboard snapshot',
-      message: error.message,
-    })
-  }
-})
-
-app.get('/api/codeforces/profile/:handle', async (request, response) => {
-  try {
-    const data = await getCodeforcesProfile(request.params.handle)
-    response.json(data)
-  } catch (error) {
-    response.status(502).json({
-      error: 'Failed to fetch Codeforces profile',
-      message: error.message,
-    })
-  }
-})
-
-app.get('/api/codeforces/submissions/:handle', async (request, response) => {
-  try {
-    const data = await getCodeforcesSubmissions(
-      request.params.handle,
-      request.query,
-    )
-    response.json(data)
-  } catch (error) {
-    response.status(502).json({
-      error: 'Failed to fetch Codeforces submissions',
-      message: error.message,
-    })
-  }
-})
-
-app.get('/api/codeforces/rating/:handle', async (request, response) => {
-  try {
-    const data = await getCodeforcesRating(request.params.handle)
-    response.json(data)
-  } catch (error) {
-    response.status(502).json({
-      error: 'Failed to fetch Codeforces rating history',
       message: error.message,
     })
   }

@@ -34,10 +34,6 @@ const trackedProblemSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
-    contestDivision: {
-      type: String,
-      default: null,
-    },
     problemIndex: {
       type: String,
       default: null,

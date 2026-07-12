@@ -44,7 +44,6 @@ function normalizeCodeforcesProblem(problem) {
     rating: problem.rating ?? null,
     tags: problem.tags ?? [],
     contestId: problem.contestId,
-    contestDivision: null,
     problemIndex: problem.index,
   }
 }
@@ -66,30 +65,15 @@ function normalizeUserProfile(user) {
     handle: user.handle,
     rank: user.rank ?? null,
     rating: user.rating ?? null,
-    maxRank: user.maxRank ?? null,
     maxRating: user.maxRating ?? null,
-    contribution: user.contribution ?? 0,
     avatar: user.avatar ?? null,
-    titlePhoto: user.titlePhoto ?? null,
-    lastOnlineAt: user.lastOnlineTimeSeconds
-      ? toIsoDate(user.lastOnlineTimeSeconds)
-      : null,
-    registeredAt: user.registrationTimeSeconds
-      ? toIsoDate(user.registrationTimeSeconds)
-      : null,
-    friendOfCount: user.friendOfCount ?? 0,
   }
 }
 
 function normalizeSubmission(submission) {
   return {
-    id: submission.id,
     submittedAt: toIsoDate(submission.creationTimeSeconds),
     verdict: submission.verdict ?? 'TESTING',
-    programmingLanguage: submission.programmingLanguage,
-    passedTestCount: submission.passedTestCount ?? 0,
-    timeConsumedMillis: submission.timeConsumedMillis ?? 0,
-    memoryConsumedBytes: submission.memoryConsumedBytes ?? 0,
     problem: normalizeCodeforcesProblem(submission.problem),
   }
 }
@@ -191,7 +175,6 @@ function formatCachedProblem(problem) {
     rating: problem.rating ?? null,
     tags: problem.tags ?? [],
     contestId: problem.contestId,
-    contestDivision: problem.contestDivision ?? null,
     problemIndex: problem.problemIndex,
   }
 }
@@ -259,20 +242,16 @@ function summarizeSubmissions(submissions) {
   }
 }
 
-function formatUserSnapshot(snapshot, fromCache = true) {
+function formatUserSnapshot(snapshot) {
   const syncedAt = dateToIsoDate(snapshot.syncedAt)
 
   return {
     source: 'Codeforces',
     handle: snapshot.profile.handle,
-    cachedHandle: snapshot.handle,
     syncedAt,
-    fromCache,
-    fetchedSubmissionCount: snapshot.fetchedSubmissionCount,
     profile: snapshot.profile,
     submissionSummary: snapshot.submissionSummary,
     recentSubmissions: snapshot.recentSubmissions ?? [],
-    ratingHistory: snapshot.ratingHistory ?? [],
   }
 }
 
@@ -304,30 +283,8 @@ async function fetchLiveCodeforcesSubmissions(handle, options = {}) {
     .map(normalizeSubmission)
 
   return {
-    source: 'Codeforces',
-    handle,
-    requestedCount: normalizedOptions.count,
     ...summarizeSubmissions(normalizedSubmissions),
     recentSubmissions: normalizedSubmissions.slice(0, 25),
-  }
-}
-
-async function fetchLiveCodeforcesRating(handle) {
-  const ratingChanges = await callCodeforces('user.rating', { handle })
-
-  return {
-    source: 'Codeforces',
-    handle,
-    count: ratingChanges.length,
-    ratingHistory: ratingChanges.map((change) => ({
-      contestId: change.contestId,
-      contestName: change.contestName,
-      rank: change.rank,
-      ratedAt: toIsoDate(change.ratingUpdateTimeSeconds),
-      oldRating: change.oldRating,
-      newRating: change.newRating,
-      delta: change.newRating - change.oldRating,
-    })),
   }
 }
 
@@ -399,10 +356,8 @@ export async function refreshCodeforcesUserSnapshot(handle, options = {}) {
   const normalizedHandle = normalizeHandle(handle)
   const profile = await fetchLiveCodeforcesProfile(handle)
   const submissions = await fetchLiveCodeforcesSubmissions(handle, options)
-  const rating = await fetchLiveCodeforcesRating(handle)
   const syncedAt = new Date()
-  const { recentSubmissions, requestedCount, source, ...submissionSummary } =
-    submissions
+  const { recentSubmissions, ...submissionSummary } = submissions
 
   const snapshot = await CodeforcesUserSnapshot.findOneAndUpdate(
     { handle: normalizedHandle },
@@ -412,15 +367,13 @@ export async function refreshCodeforcesUserSnapshot(handle, options = {}) {
         profile,
         submissionSummary,
         recentSubmissions,
-        ratingHistory: rating.ratingHistory,
-        fetchedSubmissionCount: requestedCount,
         syncedAt,
       },
     },
     { returnDocument: 'after', upsert: true },
   ).lean()
 
-  return formatUserSnapshot(snapshot, false)
+  return formatUserSnapshot(snapshot)
 }
 
 export async function getCodeforcesUserSnapshot(handle, options = {}) {
@@ -434,40 +387,4 @@ export async function getCodeforcesUserSnapshot(handle, options = {}) {
   }
 
   return refreshCodeforcesUserSnapshot(handle, options)
-}
-
-export async function getCodeforcesProfile(handle) {
-  const snapshot = await getCodeforcesUserSnapshot(handle)
-  return {
-    ...snapshot.profile,
-    syncedAt: snapshot.syncedAt,
-    fromCache: snapshot.fromCache,
-  }
-}
-
-export async function getCodeforcesSubmissions(handle, options = {}) {
-  const snapshot = await getCodeforcesUserSnapshot(handle, options)
-
-  return {
-    source: 'Codeforces',
-    handle: snapshot.handle,
-    requestedCount: snapshot.fetchedSubmissionCount,
-    syncedAt: snapshot.syncedAt,
-    fromCache: snapshot.fromCache,
-    ...snapshot.submissionSummary,
-    recentSubmissions: snapshot.recentSubmissions,
-  }
-}
-
-export async function getCodeforcesRating(handle) {
-  const snapshot = await getCodeforcesUserSnapshot(handle)
-
-  return {
-    source: 'Codeforces',
-    handle: snapshot.handle,
-    syncedAt: snapshot.syncedAt,
-    fromCache: snapshot.fromCache,
-    count: snapshot.ratingHistory.length,
-    ratingHistory: snapshot.ratingHistory,
-  }
 }

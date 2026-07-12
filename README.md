@@ -103,7 +103,7 @@ Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` request
 | `GET` | `/api/codeforces/problems` | Search the cached Codeforces problemset |
 | `POST` | `/api/codeforces/problems/refresh` | Download a fresh problemset |
 | `GET` | `/api/codeforces/dashboard/:handle` | Read a cached profile snapshot |
-| `POST` | `/api/codeforces/dashboard/:handle/refresh` | Sync profile, submissions, and rating history |
+| `POST` | `/api/codeforces/dashboard/:handle/refresh` | Sync profile and submission history |
 | `GET` | `/api/problems` | List tracked problems |
 | `POST` | `/api/problems` | Add a problem to the tracker |
 | `PATCH` | `/api/problems/:id` | Update status, queue, notes, or confidence |
