@@ -7,6 +7,7 @@ const MAX_LIMIT = 200
 const DEFAULT_SUBMISSION_COUNT = 500
 const MAX_SUBMISSION_COUNT = 1000
 
+// Shared by the problem and dashboard workflows.
 async function callCodeforces(methodName, params = {}) {
   const url = new URL(`${CODEFORCES_API_BASE}/${methodName}`)
 
@@ -31,16 +32,12 @@ async function callCodeforces(methodName, params = {}) {
   return payload.result
 }
 
-function createProblemUrl(contestId, problemIndex) {
-  return `https://codeforces.com/problemset/problem/${contestId}/${problemIndex}`
-}
-
 function normalizeCodeforcesProblem(problem) {
   return {
     platform: 'Codeforces',
     externalId: `${problem.contestId}-${problem.index}`,
     title: problem.name,
-    url: createProblemUrl(problem.contestId, problem.index),
+    url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`,
     rating: problem.rating ?? null,
     tags: problem.tags ?? [],
     contestId: problem.contestId,
@@ -48,34 +45,8 @@ function normalizeCodeforcesProblem(problem) {
   }
 }
 
-function toIsoDate(seconds) {
-  return new Date(seconds * 1000).toISOString()
-}
-
 function dateToIsoDate(date) {
   return date instanceof Date ? date.toISOString() : new Date(date).toISOString()
-}
-
-function normalizeHandle(handle) {
-  return String(handle).trim().toLowerCase()
-}
-
-function normalizeUserProfile(user) {
-  return {
-    handle: user.handle,
-    rank: user.rank ?? null,
-    rating: user.rating ?? null,
-    maxRating: user.maxRating ?? null,
-    avatar: user.avatar ?? null,
-  }
-}
-
-function normalizeSubmission(submission) {
-  return {
-    submittedAt: toIsoDate(submission.creationTimeSeconds),
-    verdict: submission.verdict ?? 'TESTING',
-    problem: normalizeCodeforcesProblem(submission.problem),
-  }
 }
 
 function parseInteger(value) {
@@ -87,6 +58,7 @@ function parseInteger(value) {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+// Problem discovery and MongoDB problem-cache workflow.
 function normalizeTagFilters(value) {
   const values = Array.isArray(value) ? value : [value]
 
@@ -113,17 +85,6 @@ function normalizeFilters(filters) {
     maxRating,
     limit: Math.min(Math.max(requestedLimit ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
     page: Math.max(requestedPage ?? 1, 1),
-  }
-}
-
-function normalizeSubmissionOptions(options) {
-  const requestedCount = parseInteger(options.count)
-
-  return {
-    count: Math.min(
-      Math.max(requestedCount ?? DEFAULT_SUBMISSION_COUNT, 1),
-      MAX_SUBMISSION_COUNT,
-    ),
   }
 }
 
@@ -179,8 +140,100 @@ function formatCachedProblem(problem) {
   }
 }
 
-function getProblemKey(problem) {
-  return `${problem.contestId}-${problem.problemIndex}`
+export async function refreshCodeforcesProblemCache() {
+  const result = await callCodeforces('problemset.problems')
+  const syncedAt = new Date()
+  const problems = result.problems
+    .filter((problem) => problem.contestId && problem.index)
+    .filter((problem) => problem.type === 'PROGRAMMING')
+    .map((problem) => ({
+      ...normalizeCodeforcesProblem(problem),
+      syncedAt,
+    }))
+
+  if (problems.length > 0) {
+    await CodeforcesProblemCache.bulkWrite(
+      problems.map((problem) => ({
+        updateOne: {
+          filter: { externalId: problem.externalId },
+          update: { $set: problem },
+          upsert: true,
+        },
+      })),
+      { ordered: false },
+    )
+  }
+
+  return {
+    source: 'Codeforces',
+    syncedAt: syncedAt.toISOString(),
+    problemCount: problems.length,
+  }
+}
+
+export async function getCodeforcesProblems(filters = {}) {
+  const normalizedFilters = normalizeFilters(filters)
+  const cachedCount = await CodeforcesProblemCache.estimatedDocumentCount()
+
+  if (cachedCount === 0) {
+    await refreshCodeforcesProblemCache()
+  }
+
+  const query = buildProblemCacheQuery(normalizedFilters)
+  const skip = (normalizedFilters.page - 1) * normalizedFilters.limit
+  const [cachedMetadata, totalMatched, cachedProblems] = await Promise.all([
+    CodeforcesProblemCache.findOne().sort({ syncedAt: -1 }).lean(),
+    CodeforcesProblemCache.countDocuments(query),
+    CodeforcesProblemCache.find(query)
+      .sort({ contestId: -1, problemIndex: -1 })
+      .skip(skip)
+      .limit(normalizedFilters.limit)
+      .lean(),
+  ])
+  const totalPages = Math.max(Math.ceil(totalMatched / normalizedFilters.limit), 1)
+
+  return {
+    source: 'Codeforces',
+    cachedAt: cachedMetadata
+      ? dateToIsoDate(cachedMetadata.syncedAt)
+      : null,
+    count: cachedProblems.length,
+    totalMatched,
+    page: normalizedFilters.page,
+    totalPages,
+    hasPreviousPage: normalizedFilters.page > 1,
+    hasNextPage: normalizedFilters.page < totalPages,
+    filters: normalizedFilters,
+    problems: cachedProblems.map(formatCachedProblem),
+  }
+}
+
+// Codeforces profile, submission analytics, and user-snapshot workflow.
+function normalizeHandle(handle) {
+  return String(handle).trim().toLowerCase()
+}
+
+async function fetchLiveCodeforcesProfile(handle) {
+  const users = await callCodeforces('user.info', { handles: handle })
+  const user = users[0]
+
+  return {
+    handle: user.handle,
+    rank: user.rank ?? null,
+    rating: user.rating ?? null,
+    maxRating: user.maxRating ?? null,
+    avatar: user.avatar ?? null,
+  }
+}
+
+function normalizeSubmission(submission) {
+  return {
+    submittedAt: new Date(
+      submission.creationTimeSeconds * 1000,
+    ).toISOString(),
+    verdict: submission.verdict ?? 'TESTING',
+    problem: normalizeCodeforcesProblem(submission.problem),
+  }
 }
 
 function summarizeSubmissions(submissions) {
@@ -191,7 +244,7 @@ function summarizeSubmissions(submissions) {
   const solvedByTag = {}
 
   submissions.forEach((submission) => {
-    const key = getProblemKey(submission.problem)
+    const key = submission.problem.externalId
     const submissionDate = submission.submittedAt.slice(0, 10)
     const dailyActivity = activityByDate[submissionDate] ?? {
       submissions: 0,
@@ -242,38 +295,16 @@ function summarizeSubmissions(submissions) {
   }
 }
 
-function formatUserSnapshot(snapshot) {
-  const syncedAt = dateToIsoDate(snapshot.syncedAt)
-
-  return {
-    source: 'Codeforces',
-    handle: snapshot.profile.handle,
-    syncedAt,
-    profile: snapshot.profile,
-    submissionSummary: snapshot.submissionSummary,
-    recentSubmissions: snapshot.recentSubmissions ?? [],
-  }
-}
-
-async function ensureProblemCache() {
-  const cachedCount = await CodeforcesProblemCache.estimatedDocumentCount()
-
-  if (cachedCount === 0) {
-    await refreshCodeforcesProblemCache()
-  }
-}
-
-async function fetchLiveCodeforcesProfile(handle) {
-  const users = await callCodeforces('user.info', { handles: handle })
-  return normalizeUserProfile(users[0])
-}
-
 async function fetchLiveCodeforcesSubmissions(handle, options = {}) {
-  const normalizedOptions = normalizeSubmissionOptions(options)
+  const requestedCount = parseInteger(options.count)
+  const count = Math.min(
+    Math.max(requestedCount ?? DEFAULT_SUBMISSION_COUNT, 1),
+    MAX_SUBMISSION_COUNT,
+  )
   const submissions = await callCodeforces('user.status', {
     handle,
     from: 1,
-    count: normalizedOptions.count,
+    count,
   })
 
   const normalizedSubmissions = submissions
@@ -288,67 +319,14 @@ async function fetchLiveCodeforcesSubmissions(handle, options = {}) {
   }
 }
 
-export async function refreshCodeforcesProblemCache() {
-  const result = await callCodeforces('problemset.problems')
-  const syncedAt = new Date()
-  const problems = result.problems
-    .filter((problem) => problem.contestId && problem.index)
-    .filter((problem) => problem.type === 'PROGRAMMING')
-    .map((problem) => ({
-      ...normalizeCodeforcesProblem(problem),
-      syncedAt,
-    }))
-
-  if (problems.length > 0) {
-    await CodeforcesProblemCache.bulkWrite(
-      problems.map((problem) => ({
-        updateOne: {
-          filter: { externalId: problem.externalId },
-          update: { $set: problem },
-          upsert: true,
-        },
-      })),
-      { ordered: false },
-    )
-  }
-
+function formatUserSnapshot(snapshot) {
   return {
     source: 'Codeforces',
-    syncedAt: syncedAt.toISOString(),
-    problemCount: problems.length,
-  }
-}
-
-export async function getCodeforcesProblems(filters = {}) {
-  const normalizedFilters = normalizeFilters(filters)
-  await ensureProblemCache()
-
-  const query = buildProblemCacheQuery(normalizedFilters)
-  const skip = (normalizedFilters.page - 1) * normalizedFilters.limit
-  const [cachedMetadata, totalMatched, cachedProblems] = await Promise.all([
-    CodeforcesProblemCache.findOne().sort({ syncedAt: -1 }).lean(),
-    CodeforcesProblemCache.countDocuments(query),
-    CodeforcesProblemCache.find(query)
-      .sort({ contestId: -1, problemIndex: -1 })
-      .skip(skip)
-      .limit(normalizedFilters.limit)
-      .lean(),
-  ])
-  const totalPages = Math.max(Math.ceil(totalMatched / normalizedFilters.limit), 1)
-
-  return {
-    source: 'Codeforces',
-    cachedAt: cachedMetadata
-      ? dateToIsoDate(cachedMetadata.syncedAt)
-      : null,
-    count: cachedProblems.length,
-    totalMatched,
-    page: normalizedFilters.page,
-    totalPages,
-    hasPreviousPage: normalizedFilters.page > 1,
-    hasNextPage: normalizedFilters.page < totalPages,
-    filters: normalizedFilters,
-    problems: cachedProblems.map(formatCachedProblem),
+    handle: snapshot.profile.handle,
+    syncedAt: dateToIsoDate(snapshot.syncedAt),
+    profile: snapshot.profile,
+    submissionSummary: snapshot.submissionSummary,
+    recentSubmissions: snapshot.recentSubmissions ?? [],
   }
 }
 
