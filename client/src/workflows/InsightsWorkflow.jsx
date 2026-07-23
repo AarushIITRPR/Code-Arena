@@ -9,40 +9,30 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ActivityAtlas, EmptyState } from '../components'
-import { formatNumber, formatShortDate, getActivityLevel, getRatingAccent } from '../lib'
+import { EmptyState } from '../components'
+import { formatNumber, formatShortDate, getRatingAccent } from '../lib'
 
-function ChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="chart-tooltip">
-      <strong>{label}</strong>
-      <span>{formatNumber(payload[0].value)} solved</span>
-    </div>
-  )
-}
-
-export default function InsightsPage({
+export default function InsightsWorkflow({
   dashboard,
-  summary,
   handle,
   handleInput,
   setHandleInput,
   loading,
   onSync,
-  ratingData,
-  topicData,
-  activityByDate,
-  activityMetrics,
 }) {
-  const solveRate = summary?.attemptedCount
-    ? Math.round((summary.solvedCount / summary.attemptedCount) * 100)
-    : 0
-  const topTopic = topicData[0]
-  const topRating = ratingData.reduce(
-    (best, item) => item.solved > (best?.solved ?? -1) ? item : best,
-    null,
-  )
+  const summary = dashboard?.submissionSummary
+  const insights = dashboard?.insights
+  const topicData = insights?.topicData ?? []
+  const ratingData = insights?.ratingData ?? []
+  const activityMetrics = insights?.activityMetrics ?? {
+    activeDays: 0,
+    currentStreak: 0,
+  }
+  const activityMonths = insights?.activityMonths ?? []
+  const activityLegendLevels = insights?.activityLegendLevels ?? []
+  const solveRate = insights?.solveRate ?? 0
+  const topTopic = insights?.topTopic
+  const topRating = insights?.topRating
   const colors = ['#635bff', '#f05a47', '#168a68', '#d68c22', '#3478d4']
 
   return (
@@ -139,10 +129,10 @@ export default function InsightsPage({
               <span>{activityMetrics.currentStreak ? `${activityMetrics.currentStreak}-day current streak` : 'No active streak today'}</span>
             </p>
           </header>
-          <ActivityAtlas activityByDate={activityByDate} />
+          <ActivityAtlas months={activityMonths} />
           <footer className="atlas-legend">
             <span>Quiet</span>
-            {[0, 1, 2, 3, 4].map((level) => <i className={`activity-day level-${getActivityLevel(level * 2)}`} key={level} />)}
+            {activityLegendLevels.map((level) => <i className={`activity-day level-${level}`} key={level} />)}
             <span>Busy</span>
           </footer>
         </section>
@@ -158,12 +148,60 @@ export default function InsightsPage({
             {topicData.length ? topicData.map((item, index) => (
               <li key={item.topic} style={{ '--topic-color': colors[index % colors.length] }}>
                 <div><span>{item.topic}</span><strong>{formatNumber(item.solved)}</strong></div>
-                <i><span style={{ width: `${Math.max((item.solved / topTopic.solved) * 100, 4)}%` }} /></i>
+                <i><span style={{ width: `${item.barPercentage}%` }} /></i>
               </li>
             )) : <EmptyState body="Sync a handle first." title="No topic data" />}
           </ol>
         </section>
       </div>
     </section>
+  )
+}
+
+function ActivityAtlas({ months }) {
+  const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+  return (
+    <div className="activity-atlas" aria-label="Twelve month submission heatmap">
+      {months.map((month, monthIndex) => (
+        <article className="activity-month" key={month.key}>
+          <header>
+            <span>
+              {month.label}
+              {(monthIndex === 0 || month.label === 'Jan') && <small>{month.year}</small>}
+            </span>
+            <strong>{formatNumber(month.submissions)}</strong>
+          </header>
+          <div className="activity-week-key" aria-hidden="true">
+            {weekdays.map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+          </div>
+          <div className="activity-month-grid">
+            {month.cells.map((day, index) => {
+              if (!day) return <i className="activity-day empty" key={index} />
+              const label = `${day.key}: ${day.submissions} submissions, ${day.accepted} accepted`
+
+              return (
+                <i
+                  aria-label={label}
+                  className={`activity-day level-${day.level}${day.future ? ' future' : ''}`}
+                  key={day.key}
+                  title={label}
+                />
+              )
+            })}
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="chart-tooltip">
+      <strong>{label}</strong>
+      <span>{formatNumber(payload[0].value)} solved</span>
+    </div>
   )
 }

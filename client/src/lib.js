@@ -2,16 +2,6 @@ export const DEFAULT_HANDLE =
   localStorage.getItem('codearena:handle') || 'tourist'
 
 export const VIEWS = ['inbox', 'discovery', 'insights', 'revision']
-export const STATUS_OPTIONS = ['Planned', 'Attempted', 'Solved', 'Revise']
-export const QUEUE_OPTIONS = ['Today', 'Revision', 'Weak Topic', 'Later']
-export const MISTAKE_OPTIONS = [
-  '',
-  'Concept gap',
-  'Implementation bug',
-  'Edge case missed',
-  'TLE / optimization',
-  'Could not derive approach',
-]
 export const PAGE_SIZE = 39
 export const CODEFORCES_TAGS = [
   'implementation',
@@ -42,6 +32,7 @@ export const CODEFORCES_TAGS = [
   'matrices',
 ]
 
+// Sends a request to our Express API and turns non-success responses into JavaScript errors.
 export async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json', ...options.headers },
@@ -51,7 +42,7 @@ export async function apiRequest(path, options = {}) {
   if (response.status === 204) return null
   const payload = await response.json()
   if (!response.ok) {
-    throw new Error(payload.message || payload.error || 'Request failed')
+    throw new Error(payload.message || 'The request could not be completed.')
   }
   return payload
 }
@@ -73,10 +64,6 @@ export function formatShortDate(value) {
 export function getInitialView() {
   const view = window.location.hash.replace('#', '')
   return VIEWS.includes(view) ? view : 'inbox'
-}
-
-export function getProblemTopic(problem) {
-  return problem.tags?.[0] ?? 'general'
 }
 
 export function getStatusClass(status = '') {
@@ -106,82 +93,4 @@ export function getVisiblePages(currentPage, totalPages) {
     if (page >= 1 && page <= totalPages) pages.add(page)
   }
   return [...pages].sort((a, b) => a - b)
-}
-
-export function getActivityLevel(count) {
-  if (!count) return 0
-  if (count <= 2) return 1
-  if (count <= 4) return 2
-  if (count <= 7) return 3
-  return 4
-}
-
-function dateKey(date) {
-  return date.toISOString().slice(0, 10)
-}
-
-export function buildActivityMonths(activityByDate, monthCount = 12) {
-  const now = new Date()
-  const today = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  )
-
-  return Array.from({ length: monthCount }, (_, index) => {
-    const first = new Date(
-      Date.UTC(
-        today.getUTCFullYear(),
-        today.getUTCMonth() - monthCount + index + 1,
-        1,
-      ),
-    )
-    const days = new Date(
-      Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0),
-    ).getUTCDate()
-    const cells = Array.from({ length: 42 }, (_, cell) => {
-      const day = cell - first.getUTCDay() + 1
-      if (day < 1 || day > days) return null
-      const date = new Date(
-        Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), day),
-      )
-      const activity = activityByDate[dateKey(date)] ?? {}
-      return {
-        key: dateKey(date),
-        date,
-        future: date > today,
-        submissions: activity.submissions ?? 0,
-        accepted: activity.accepted ?? 0,
-      }
-    })
-
-    return {
-      key: dateKey(first),
-      label: new Intl.DateTimeFormat('en', {
-        month: 'short',
-        timeZone: 'UTC',
-      }).format(first),
-      year: first.getUTCFullYear(),
-      submissions: cells.reduce((sum, day) => sum + (day?.submissions ?? 0), 0),
-      cells,
-    }
-  })
-}
-
-export function getActivityMetrics(activityByDate) {
-  const activeDates = new Set(
-    Object.entries(activityByDate)
-      .filter(([, value]) => value.submissions > 0)
-      .map(([date]) => date),
-  )
-  const now = new Date()
-  const cursor = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  )
-  if (!activeDates.has(dateKey(cursor))) cursor.setUTCDate(cursor.getUTCDate() - 1)
-
-  let currentStreak = 0
-  while (activeDates.has(dateKey(cursor))) {
-    currentStreak += 1
-    cursor.setUTCDate(cursor.getUTCDate() - 1)
-  }
-  return { activeDays: activeDates.size, currentStreak }
 }

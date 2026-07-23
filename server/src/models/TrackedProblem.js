@@ -1,5 +1,16 @@
 import mongoose from 'mongoose'
 
+export const TRACKING_STATUSES = ['Planned', 'Attempted', 'Solved', 'Revise']
+export const TRACKING_QUEUES = ['Today', 'Revision', 'Weak Topic', 'Later']
+export const TRACKING_MISTAKE_TYPES = [
+  'Concept gap',
+  'Implementation bug',
+  'Edge case missed',
+  'TLE / optimization',
+  'Could not derive approach',
+]
+export const TRACKING_CONFIDENCE_SCORES = [1, 2, 3, 4, 5]
+
 const trackedProblemSchema = new mongoose.Schema(
   {
     platform: {
@@ -41,12 +52,12 @@ const trackedProblemSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Planned', 'Attempted', 'Solved', 'Revise'],
+      enum: TRACKING_STATUSES,
       default: 'Planned',
     },
     queue: {
       type: String,
-      enum: ['Today', 'Revision', 'Weak Topic', 'Later'],
+      enum: TRACKING_QUEUES,
       default: 'Later',
     },
     notes: {
@@ -56,6 +67,7 @@ const trackedProblemSchema = new mongoose.Schema(
     },
     mistakeType: {
       type: String,
+      enum: TRACKING_MISTAKE_TYPES,
       default: null,
       trim: true,
     },

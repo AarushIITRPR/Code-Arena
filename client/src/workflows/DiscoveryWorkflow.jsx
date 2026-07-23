@@ -1,33 +1,128 @@
-import { Check, DatabaseZap, Loader2, Plus, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { DatabaseZap, Loader2, Search } from 'lucide-react'
 import { CodeforcesIcon, EmptyState, PageHeader } from '../components'
 import {
+  apiRequest,
   CODEFORCES_TAGS,
   formatNumber,
   formatTagSummary,
   getRatingAccent,
   getStatusClass,
   getVisiblePages,
+  PAGE_SIZE,
 } from '../lib'
+import { TrackProblemButton } from './TrackingWorkflow'
 
-export default function DiscoveryPage({
-  filters,
-  setFilters,
-  data,
-  state,
-  trackedById,
-  attemptsById,
+/* oxlint-disable react/only-export-components */
+
+const initialFilters = {
+  search: '',
+  tags: [],
+  minRating: '800',
+  maxRating: '1600',
+  page: '1',
+}
+
+export function useDiscoveryWorkflow() {
+  const [filters, setFilters] = useState(initialFilters)
+  const [data, setData] = useState(null)
+  const [state, setState] = useState({ loading: true, error: '' })
+
+  // Converts the active filters into query parameters and fetches one results page.
+  async function loadProblems(nextFilters = filters) {
+    setState({ loading: true, error: '' })
+    const params = new URLSearchParams()
+
+    Object.entries(nextFilters).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => params.append(key, item))
+      } else {
+        params.set(key, value)
+      }
+    })
+    params.set('limit', String(PAGE_SIZE))
+
+    try {
+      setData(await apiRequest(`/api/codeforces/problems?${params}`))
+      setState({ loading: false, error: '' })
+    } catch (error) {
+      setState({ loading: false, error: error.message })
+    }
+  }
+
+  // Rebuilds the backend problem cache before repeating the search from page one.
+  async function refreshProblems() {
+    setState({ loading: true, error: '' })
+    try {
+      await apiRequest('/api/codeforces/problems/refresh', { method: 'POST' })
+      const nextFilters = { ...filters, page: '1' }
+      setFilters(nextFilters)
+      await loadProblems(nextFilters)
+    } catch (error) {
+      setState({ loading: false, error: error.message })
+    }
+  }
+
+  function search(event) {
+    event.preventDefault()
+    const nextFilters = { ...filters, page: '1' }
+    setFilters(nextFilters)
+    loadProblems(nextFilters)
+  }
+
+  function changePage(page) {
+    const nextFilters = { ...filters, page: String(page) }
+    setFilters(nextFilters)
+    loadProblems(nextFilters)
+  }
+
+  function toggleTag(tag) {
+    const tags = filters.tags.includes(tag)
+      ? filters.tags.filter((item) => item !== tag)
+      : [...filters.tags, tag]
+    setFilters({ ...filters, tags, page: '1' })
+  }
+
+  useEffect(() => {
+    loadProblems(initialFilters)
+  }, [])
+
+  return {
+    changePage,
+    data,
+    filters,
+    refreshProblems,
+    search,
+    setFilters,
+    state,
+    toggleTag,
+  }
+}
+
+export default function DiscoveryWorkflow({
+  attemptStatusDefault,
+  attemptStatusByProblem,
+  discovery,
   savingId,
-  onSearch,
-  onRefresh,
-  onPage,
-  onTrack,
-  onToggleTag,
+  trackProblem,
+  trackedByExternalId,
 }) {
+  const {
+    changePage,
+    data,
+    filters,
+    refreshProblems,
+    search,
+    setFilters,
+    state,
+    toggleTag,
+  } = discovery
+
   return (
     <section className="screen-view editorial-screen">
       <PageHeader
         action={
-          <button className="plain-action" disabled={state.loading} onClick={onRefresh} type="button">
+          <button className="plain-action" disabled={state.loading} onClick={refreshProblems} type="button">
             <DatabaseZap size={15} /> Refresh cache
           </button>
         }
@@ -35,7 +130,7 @@ export default function DiscoveryPage({
         title="Find your next problem."
       />
 
-      <form className="search-line" onSubmit={onSearch}>
+      <form className="search-line" onSubmit={search}>
         <label className="search-query">
           <span>Search</span>
           <input
@@ -64,7 +159,7 @@ export default function DiscoveryPage({
                   <label key={tag}>
                     <input
                       checked={filters.tags.includes(tag)}
-                      onChange={() => onToggleTag(tag)}
+                      onChange={() => toggleTag(tag)}
                       type="checkbox"
                     />
                     {tag}
@@ -98,8 +193,10 @@ export default function DiscoveryPage({
       <div className="problem-index">
         {state.loading && <EmptyState body="Loading matching problems." title="Searching" />}
         {!state.loading && (data?.problems ?? []).map((problem) => {
-          const tracked = trackedById.get(problem.externalId)
-          const attempt = attemptsById.get(problem.externalId) ?? 'Unattempted'
+          const tracked = trackedByExternalId[problem.externalId]
+          const attempt = attemptStatusByProblem[problem.externalId]
+            ?? attemptStatusDefault
+
           return (
             <article
               className="problem-entry"
@@ -129,15 +226,12 @@ export default function DiscoveryPage({
                   <span className={getStatusClass(attempt)}>{attempt}</span>
                   {tracked && <em>{tracked.status}</em>}
                 </div>
-                <button
-                  className="plain-action"
-                  disabled={Boolean(tracked) || savingId === problem.externalId}
-                  onClick={() => onTrack(problem)}
-                  type="button"
-                >
-                  {savingId === problem.externalId ? <Loader2 className="spin" size={14} /> : tracked ? <Check size={14} /> : <Plus size={14} />}
-                  {tracked ? 'Tracked' : 'Add'}
-                </button>
+                <TrackProblemButton
+                  onTrack={trackProblem}
+                  problem={problem}
+                  savingId={savingId}
+                  tracked={tracked}
+                />
               </footer>
             </article>
           )
@@ -151,14 +245,14 @@ export default function DiscoveryPage({
         <div className="pagination-bar">
           <span>Showing {data.count} of {formatNumber(data.totalMatched)} matches</span>
           <nav aria-label="Problem pages">
-            <button disabled={state.loading || !data.hasPreviousPage} onClick={() => onPage(data.page - 1)}>Previous</button>
+            <button disabled={state.loading || !data.hasPreviousPage} onClick={() => changePage(data.page - 1)}>Previous</button>
             {getVisiblePages(data.page, data.totalPages).map((page, index, pages) => (
               <span key={page}>
                 {index > 0 && page - pages[index - 1] > 1 && <i>...</i>}
-                <button className={page === data.page ? 'active' : ''} disabled={state.loading} onClick={() => onPage(page)}>{page}</button>
+                <button className={page === data.page ? 'active' : ''} disabled={state.loading} onClick={() => changePage(page)}>{page}</button>
               </span>
             ))}
-            <button disabled={state.loading || !data.hasNextPage} onClick={() => onPage(data.page + 1)}>Next</button>
+            <button disabled={state.loading || !data.hasNextPage} onClick={() => changePage(data.page + 1)}>Next</button>
           </nav>
         </div>
       )}

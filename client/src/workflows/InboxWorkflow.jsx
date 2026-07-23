@@ -1,24 +1,30 @@
 import { Check, ExternalLink } from 'lucide-react'
-import { EmptyState, PageHeader, SyncForm } from '../components'
+import { EmptyState, PageHeader } from '../components'
 import {
   formatNumber,
-  getProblemTopic,
   getStatusClass,
-  QUEUE_OPTIONS,
-  STATUS_OPTIONS,
 } from '../lib'
+import { ProfileSyncForm } from './ProfileWorkflow'
 
-export default function InboxPage({
+export default function InboxWorkflow({
   problems,
   summary,
   dashboard,
-  sync,
+  options,
+  profile,
   updateProblem,
 }) {
   return (
     <section className="screen-view editorial-screen">
       <PageHeader
-        action={<SyncForm {...sync} />}
+        action={
+          <ProfileSyncForm
+            loading={profile.state.loading}
+            onChange={profile.setHandleInput}
+            onSubmit={profile.sync}
+            value={profile.handleInput}
+          />
+        }
         description="A short, intentional queue of problems worth solving next."
         title="Practice Inbox"
       />
@@ -41,11 +47,7 @@ export default function InboxPage({
           <article className="task-row" key={problem.id}>
             <button
               className={`check-button ${getStatusClass(problem.status)}`}
-              onClick={() =>
-                updateProblem(problem.id, {
-                  status: problem.status === 'Solved' ? 'Attempted' : 'Solved',
-                })
-              }
+              onClick={() => updateProblem(problem.id, { action: 'toggleSolved' })}
               title="Toggle solved"
               type="button"
             >
@@ -57,7 +59,7 @@ export default function InboxPage({
               </a>
               <span>
                 {problem.externalId} / {problem.rating ?? 'Unrated'} /{' '}
-                {getProblemTopic(problem)}
+                {problem.topic}
               </span>
             </div>
             <label className="line-field">
@@ -68,7 +70,7 @@ export default function InboxPage({
                 }
                 value={problem.status}
               >
-                {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
+                {options.statuses.map((status) => <option key={status}>{status}</option>)}
               </select>
             </label>
             <label className="line-field">
@@ -79,7 +81,7 @@ export default function InboxPage({
                 }
                 value={problem.queue}
               >
-                {QUEUE_OPTIONS.map((queue) => <option key={queue}>{queue}</option>)}
+                {options.queues.map((queue) => <option key={queue}>{queue}</option>)}
               </select>
             </label>
           </article>

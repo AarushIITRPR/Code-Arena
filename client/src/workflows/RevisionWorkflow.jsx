@@ -1,13 +1,13 @@
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { EmptyState, PageHeader } from '../components'
-import { getProblemTopic, getStatusClass, MISTAKE_OPTIONS } from '../lib'
+import { getStatusClass } from '../lib'
 
-export default function RevisionPage({
+export default function RevisionWorkflow({
   problems,
   summary,
   dashboardSummary,
+  options,
   savingId,
-  setProblems,
   updateProblem,
   deleteProblem,
 }) {
@@ -35,36 +35,36 @@ export default function RevisionPage({
                 <a href={problem.url} rel="noreferrer" target="_blank">
                   {problem.title} <ExternalLink size={12} />
                 </a>
-                <span>{problem.externalId} / {problem.rating ?? 'Unrated'} / {getProblemTopic(problem)}</span>
+                <span>{problem.externalId} / {problem.rating ?? 'Unrated'} / {problem.topic}</span>
               </div>
             </div>
             <label className="line-field">
               <span>Mistake</span>
               <select
-                onChange={(event) => updateProblem(problem.id, { mistakeType: event.target.value || null })}
+                onChange={(event) => updateProblem(problem.id, { mistakeType: event.target.value })}
                 value={problem.mistakeType ?? ''}
               >
-                {MISTAKE_OPTIONS.map((mistake) => <option key={mistake} value={mistake}>{mistake || '-'}</option>)}
+                <option value="">-</option>
+                {options.mistakeTypes.map((mistake) => <option key={mistake}>{mistake}</option>)}
               </select>
             </label>
             <label className="line-field">
               <span>Confidence</span>
               <select
-                onChange={(event) => updateProblem(problem.id, { confidence: event.target.value ? Number(event.target.value) : null })}
+                onChange={(event) => updateProblem(problem.id, { confidence: event.target.value })}
                 value={problem.confidence ?? ''}
               >
                 <option value="">-</option>
-                {[1, 2, 3, 4, 5].map((score) => <option key={score}>{score}</option>)}
+                {options.confidenceScores.map((score) => <option key={score}>{score}</option>)}
               </select>
             </label>
             <label className="revision-notes">
               <span>Revision note</span>
               <textarea
                 aria-label={`Notes for ${problem.title}`}
+                defaultValue={problem.notes ?? ''}
                 onBlur={(event) => updateProblem(problem.id, { notes: event.target.value })}
-                onChange={(event) => setProblems((current) => current.map((item) => item.id === problem.id ? { ...item, notes: event.target.value } : item))}
                 placeholder="What should you remember next time?"
-                value={problem.notes ?? ''}
               />
             </label>
             <button
