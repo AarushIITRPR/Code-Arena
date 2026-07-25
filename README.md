@@ -1,58 +1,159 @@
 # CodeArena
 
-CodeArena is a placement-prep workspace built around Codeforces. It brings problem discovery, practice planning, revision notes, and profile analytics into one place.
+CodeArena is a MERN-stack workspace for structured Codeforces practice. It combines problem discovery, revision notes, practice tracking, and profile analytics in one place.
 
-I started this project because my Codeforces profile could tell me what I had submitted, but it did not help me decide what to practise next or remember why I got a problem wrong. I was using bookmarks and notes for that part of the workflow, so I wanted to build a small tool that connected both sides.
+## Need and inspiration
 
-## What it does
+Competitive programming preparation is rarely a short-term exercise. For many students preparing for internships and placements, Codeforces becomes part of a routine that continues for one or two years. Over such a long period, solving more problems is only one part of making progress. It is equally important to revisit useful ideas, record mistakes, and preserve the reasoning behind a solution before that context is forgotten.
 
-CodeArena currently has four main screens:
+Keeping those observations in Word documents, bookmarks, or scattered notes separates them from the problems they describe. The notes become difficult to search, rarely stay connected to submission history, and are easy to abandon. CodeArena was created to bring Codeforces data into a dedicated web application where each tracked problem can carry its own revision context, mistake category, confidence score, and practice status.
 
-- **Practice Inbox:** a short queue of problems I plan to solve, with a status and practice queue for each one.
-- **Problem Discovery:** search the Codeforces problemset by title, problem ID, rating range, and multiple tags.
-- **Profile Insights:** sync a Codeforces handle and view rating-wise solves, topic coverage, solve rate, and a submission activity calendar.
-- **Revision Log:** keep mistake types, confidence scores, and notes for problems that need another attempt.
+Long-term practice also needs feedback. A rating graph alone does not clearly show which topics are receiving attention, which difficulty bands are being solved, how consistent practice has been, or which attempted problems remain unresolved. CodeArena converts submission history into topic-wise, rating-wise, and activity-based analytics designed specifically for planning the next stage of preparation.
 
-The discovery page also checks the synced submission history, so a problem can be marked as solved, unsuccessfully attempted, or unattempted before it is added to the tracker.
+The project therefore treats Codeforces as the source of problems and submissions while adding the organisation, reflection, and progress analysis needed around it.
+
+## Frontend preview
+
+### Profile Insights
+
+![CodeArena Profile Insights](docs/screenshots/profile-insights.png)
+
+The insights page turns a user's latest Codeforces submissions into rating-wise solves, topic coverage, solve rate, active days, streaks, and a twelve-month practice calendar.
+
+### Problem Discovery
+
+![CodeArena Problem Discovery](docs/screenshots/problem-discovery.png)
+
+Discovery searches the MongoDB-backed Codeforces problem cache and marks each result as solved, unsuccessfully attempted, or unattempted for the synced handle.
+
+## What CodeArena does
+
+CodeArena turns raw Codeforces activity into a practical preparation workflow built around four connected screens.
+
+### Discover suitable problems
+
+The **Problem Discovery** screen searches the cached Codeforces problemset by title, problem ID, rating range, and multiple tags. Results are sorted by contest recency and presented in pages of 39 problems.
+
+Each result is compared with the synced submission history and marked as solved, unsuccessfully attempted, or unattempted. This makes discovery personal to the selected handle instead of presenting the same catalogue to every user.
+
+### Build a focused practice queue
+
+Problems can be added directly from discovery to the **Practice Inbox**. The inbox keeps planned and active problems together, with a clear status and queue assignment for each entry.
+
+Tracker updates are persisted in MongoDB, so changing a status, moving a problem into revision, or removing an entry remains consistent across the interface.
+
+### Preserve revision context
+
+The **Revision Log** stores the reasoning that is normally lost after a submission: mistake category, confidence score, and a written note. This creates a reviewable record of what went wrong and what should be remembered before the next attempt.
+
+### Convert submissions into useful insights
+
+The **Profile Insights** screen synchronises a Codeforces handle and derives analytics from its recent submission history. It presents:
+
+- unique solved and attempted problem counts;
+- solve rate and rating-wise solved distributions;
+- topic-wise solved counts and relative coverage;
+- active practice days and the current streak; and
+- a twelve-month submission activity calendar.
+
+These values are calculated by the backend and returned in a presentation-ready response, keeping the visualisation components focused on rendering.
 
 ## Tech stack
 
-| Part | Technology |
+| Layer | Technologies |
 | --- | --- |
-| Frontend | React, Vite, CSS, Recharts, Lucide React |
+| Frontend | React, Vite, CSS |
+| Visualisation | Recharts |
+| UI icons and fonts | Lucide React, Manrope, Newsreader |
 | Backend | Node.js, Express.js |
 | Database | MongoDB, Mongoose |
 | External data | Codeforces public API |
 
-I kept the frontend in plain React and CSS instead of using a component framework. This made the interface easier for me to understand and gave me more control over the visual design.
+The frontend uses plain React and CSS instead of a UI framework. This keeps the component code approachable while allowing precise control over the visual design without introducing a large component system.
 
-## How it works
+## Application flow
+
+The frontend is intentionally thin. React collects user input, sends requests, stores returned data, and renders the interface. Validation, filtering, aggregation, caching, and tracker rules remain in the Express backend.
 
 ```text
-React frontend
-      |
-      | requests to /api/*
-      v
-Express server
-      |
-      +------ Codeforces API
-      |
-      +------ MongoDB
+User action -> React -> Express -> Codeforces API / MongoDB
+                                  |
+                                  v
+                       prepared JSON response
+                                  |
+                                  v
+                              React UI
 ```
 
-The browser never calls Codeforces directly. It calls the Express API, which fetches and normalizes Codeforces data before returning it to React.
+The browser never contacts Codeforces directly. The backend owns validation, filtering, pagination, tracker rules, and analytics calculations, leaving React focused on user interaction and rendering.
 
-MongoDB stores three kinds of data:
+### Profile synchronisation
+
+```text
+Enter handle
+  -> POST /api/codeforces/dashboard/refresh
+  -> Codeforces user.info + user.status
+  -> normalise profile and submissions
+  -> calculate attempt, rating, topic, and activity analytics
+  -> upsert a MongoDB snapshot
+  -> return the prepared dashboard response
+```
+
+A normal dashboard load uses `GET /api/codeforces/dashboard`. It returns the existing MongoDB snapshot when available and performs the same refresh workflow only on a cache miss.
+
+### Problem discovery
+
+```text
+Enter search filters
+  -> GET /api/codeforces/problems
+  -> validate and normalise query parameters
+  -> build a Mongoose query
+  -> filter, sort, and paginate in MongoDB
+  -> return matching problems and pagination metadata
+```
+
+If the problem cache is empty, the backend first downloads `problemset.problems` from Codeforces, normalises the records, and writes them through a MongoDB bulk upsert. Later searches operate on this local cache.
+
+### Practice and revision tracking
+
+```text
+Add or update a problem
+  -> POST/PATCH /api/problems
+  -> validate the tracker fields
+  -> create or update the Mongoose document
+  -> rebuild the prepared tracker response
+  -> render the updated inbox and revision log
+```
+
+The same tracked-problem collection supports both screens. Queue, status, notes, mistake type, and confidence determine where and how an entry is presented.
+
+## Data storage
+
+MongoDB stores three types of data:
 
 1. A cached copy of the Codeforces problemset.
-2. Synced profile and submission snapshots for Codeforces handles.
-3. Problems added to the practice and revision workflow.
+2. Profile, submission, and analytics snapshots for synced handles.
+3. Problems added to the practice and revision tracker.
 
-Problem and profile data stay cached until the user chooses to refresh them. This avoids downloading the full problemset or recalculating submission analytics on every page load.
+The problemset and profile snapshots are refreshed explicitly instead of being downloaded on every page load. This reduces repeated Codeforces API calls and keeps normal reads fast.
 
-## Running the project locally
+## A few implementation decisions
 
-You need Node.js, pnpm, and either a local MongoDB installation or a MongoDB Atlas connection string.
+- **Backend as the source of truth:** validation, filtering, pagination, tracker rules, and analytics calculations stay in Express. React mainly manages UI state, API calls, and rendering.
+- **Workflow-based frontend:** related state, handlers, requests, and screen UI are grouped into workflow files so each feature can be followed from top to bottom.
+- **Server-side problem discovery:** MongoDB handles search, rating and tag filters, recency sorting, and pagination over the cached problemset.
+- **Snapshot-based profile loading:** a normal dashboard request reads the saved snapshot; an explicit sync fetches Codeforces again and updates MongoDB.
+- **Simple mutation flow:** after a tracked problem is added, edited, or deleted, the frontend reloads the backend-prepared tracker response rather than trying to update several local lists manually.
+
+## Quick start
+
+### Prerequisites
+
+- A recent Node.js installation
+- pnpm
+- MongoDB locally or a MongoDB Atlas connection string
+
+MongoDB is optional for a quick demonstration. If no connection string is provided and local MongoDB is unavailable, the backend starts an in-memory MongoDB instance. Data stored in that fallback database is lost when the server stops.
 
 ### 1. Clone the repository
 
@@ -61,23 +162,21 @@ git clone https://github.com/AarushIITRPR/Code-Arena.git
 cd Code-Arena
 ```
 
-### 2. Configure the backend
+### 2. Configure and start the backend
 
 ```bash
 cd server
 pnpm install
 ```
 
-Copy `server/.env.example` to `server/.env`:
+Copy `server/.env.example` to `server/.env` and update it if required:
 
 ```env
 MONGODB_URI=mongodb://127.0.0.1:27017/codearena
 PORT=4000
 ```
 
-`MONGODB_URI` is optional for a quick demo. If it is missing and local MongoDB is unavailable, the server starts an in-memory MongoDB instance. Data in that fallback database is lost when the server stops.
-
-Start the API:
+Start the Express API:
 
 ```bash
 pnpm run dev
@@ -85,7 +184,7 @@ pnpm run dev
 
 ### 3. Start the frontend
 
-Open another terminal:
+In another terminal:
 
 ```bash
 cd client
@@ -93,23 +192,36 @@ pnpm install
 pnpm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` requests to the backend on port `4000`.
+Open [http://localhost:5173](http://localhost:5173). During development, Vite proxies `/api` requests to the Express server on port `4000`.
+
+> When using the in-memory database, the first discovery request may take longer because the complete Codeforces problemset has to be fetched and cached.
 
 ## Main API routes
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/health` | Check whether the server is running |
-| `GET` | `/api/codeforces/problems` | Search the cached Codeforces problemset |
-| `POST` | `/api/codeforces/problems/refresh` | Download a fresh problemset |
-| `GET` | `/api/codeforces/dashboard/:handle` | Read a cached profile snapshot |
-| `POST` | `/api/codeforces/dashboard/:handle/refresh` | Sync profile and submission history |
-| `GET` | `/api/problems` | List tracked problems |
+| `GET` | `/api/health` | Check whether the API is running |
+| `GET` | `/api/codeforces/problems` | Search and paginate the cached problemset |
+| `POST` | `/api/codeforces/problems/refresh` | Refresh the Codeforces problem cache |
+| `GET` | `/api/codeforces/dashboard?handle=...` | Read a cached user snapshot, with a refresh fallback on cache miss |
+| `POST` | `/api/codeforces/dashboard/refresh?handle=...` | Fetch fresh profile and submission data |
+| `GET` | `/api/problems` | Read the prepared tracker response |
 | `POST` | `/api/problems` | Add a problem to the tracker |
-| `PATCH` | `/api/problems/:id` | Update status, queue, notes, or confidence |
+| `PATCH` | `/api/problems/:id` | Update tracking details |
 | `DELETE` | `/api/problems/:id` | Remove a tracked problem |
 
-Problem discovery accepts `search`, `tags`, `minRating`, `maxRating`, `page`, and `limit` as query parameters.
+Problem discovery supports the following query parameters:
+
+```text
+search
+tags
+minRating
+maxRating
+page
+limit
+```
+
+Multiple tags are sent by repeating the `tags` parameter.
 
 ## Project structure
 
@@ -117,36 +229,49 @@ Problem discovery accepts `search`, `tags`, `minRating`, `maxRating`, `page`, an
 Code-Arena/
 |-- client/
 |   |-- src/
-|       |-- pages/          # Four main screens
-|       |-- styles/         # Shared, page, insights, and responsive CSS
-|       |-- App.jsx         # State, API calls, and page selection
-|       |-- components.jsx  # Shared visual components
-|       |-- lib.js          # Constants and formatting helpers
+|       |-- workflows/
+|       |   |-- ProfileWorkflow.jsx
+|       |   |-- DiscoveryWorkflow.jsx
+|       |   |-- TrackingWorkflow.jsx
+|       |   |-- InboxWorkflow.jsx
+|       |   |-- RevisionWorkflow.jsx
+|       |   `-- InsightsWorkflow.jsx
+|       |-- styles/
+|       |-- App.jsx
+|       |-- components.jsx
+|       `-- lib.js
 |
-|-- server/
+`-- server/
     |-- src/
-        |-- db/             # MongoDB connection
-        |-- models/         # Mongoose schemas
-        |-- routes/         # Tracked problem CRUD routes
-        |-- services/       # Codeforces integration and caching
-        |-- index.js        # Express app and API routes
+        |-- db/
+        |-- models/
+        |   |-- CodeforcesProblemCache.js
+        |   |-- CodeforcesUserSnapshot.js
+        |   `-- TrackedProblem.js
+        |-- routes/
+        |-- services/
+        `-- index.js
 ```
 
-I deliberately kept the frontend structure small. `App.jsx` owns data and actions, while each page component mainly receives props and renders one screen. There is no global state library or large reusable component system.
+The frontend is intentionally small. `App.jsx` connects the workflows and handles page selection, while each workflow keeps most of its state, event handlers, API calls, and related UI together.
 
-## Current limitations
+## Development takeaways
 
-- Codeforces is the only supported coding platform.
-- The practice tracker is currently single-user and has no authentication.
-- Analytics use the latest 1,000 submissions requested during a sync.
-- CodeArena links to the original problem page; it is not an online judge or in-browser IDE.
-- The app depends on the availability and response format of the Codeforces API.
+Building CodeArena involved:
 
-These are intentional V1 limits. The goal was to finish a complete and understandable MERN project before adding more platforms or larger features.
+- designing REST endpoints around frontend workflows;
+- normalising data from an external API;
+- modelling cached and user-generated data with Mongoose;
+- deciding which logic belongs in React and which belongs in the backend;
+- building search, filtering, sorting, and pagination with MongoDB;
+- deriving useful analytics from submission history; and
+- keeping a growing frontend readable without overengineering it.
 
-## What I learned
+## Planned direction
 
-This project helped me understand how a React frontend, an Express API, an external API, and MongoDB fit together in one application. The most useful parts for me were designing the data flow, normalizing third-party data, deciding what should be cached, and turning raw submission history into information that is actually useful while practising.
+The longer-term direction for CodeArena is an integrated code editor that can automatically import a problem statement and its sample test cases from the original problem page. This would allow a user to discover a problem, read it, write a solution, and run the supplied examples without repeatedly moving between Codeforces, a local editor, and separate notes.
+
+With this addition, CodeArena can grow from a Codeforces companion into a complete, self-contained replacement for the day-to-day Codeforces practice workflow, covering discovery, solving, testing, revision, and analytics in one place.
 
 ## References
 
@@ -154,3 +279,4 @@ This project helped me understand how a React frontend, an Express API, an exter
 - [React](https://react.dev/)
 - [Express](https://expressjs.com/)
 - [Mongoose](https://mongoosejs.com/)
+- [Recharts](https://recharts.org/)
