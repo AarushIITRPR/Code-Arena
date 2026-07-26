@@ -53,8 +53,6 @@ function buildTrackedProblemsResponse(problemDocuments) {
   )
 
   return {
-    count: problems.length,
-    problems,
     inboxProblems,
     revisionProblems,
     summary: {

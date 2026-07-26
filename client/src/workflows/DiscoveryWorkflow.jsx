@@ -9,7 +9,6 @@ import {
   getRatingAccent,
   getStatusClass,
   getVisiblePages,
-  PAGE_SIZE,
 } from '../lib'
 import { TrackProblemButton } from './TrackingWorkflow'
 
@@ -40,8 +39,6 @@ export function useDiscoveryWorkflow() {
         params.set(key, value)
       }
     })
-    params.set('limit', String(PAGE_SIZE))
-
     try {
       setData(await apiRequest(`/api/codeforces/problems?${params}`))
       setState({ loading: false, error: '' })

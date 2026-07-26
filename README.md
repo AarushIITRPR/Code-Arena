@@ -218,10 +218,10 @@ tags
 minRating
 maxRating
 page
-limit
 ```
 
-Multiple tags are sent by repeating the `tags` parameter.
+Multiple tags are sent by repeating the `tags` parameter. Problem discovery
+uses a fixed page size of 39 results.
 
 ## Project structure
 

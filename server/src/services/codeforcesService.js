@@ -2,10 +2,8 @@ import { CodeforcesProblemCache } from '../models/CodeforcesProblemCache.js'
 import { CodeforcesUserSnapshot } from '../models/CodeforcesUserSnapshot.js'
 
 const CODEFORCES_API_BASE = 'https://codeforces.com/api'
-const DEFAULT_LIMIT = 100
-const MAX_LIMIT = 200
-const DEFAULT_SUBMISSION_COUNT = 500
-const MAX_SUBMISSION_COUNT = 1000
+const PROBLEM_PAGE_SIZE = 39
+const SUBMISSION_COUNT = 1000
 
 function createServiceError(message, statusCode) {
   const error = new Error(message)
@@ -92,7 +90,6 @@ function normalizeTagFilters(value) {
 function normalizeFilters(filters) {
   const minRating = parseInteger(filters.minRating)
   const maxRating = parseInteger(filters.maxRating)
-  const requestedLimit = parseInteger(filters.limit)
   const requestedPage = parseInteger(filters.page)
 
   const normalizedFilters = {
@@ -100,7 +97,6 @@ function normalizeFilters(filters) {
     tags: normalizeTagFilters(filters.tags ?? filters.tag),
     minRating,
     maxRating,
-    limit: Math.min(Math.max(requestedLimit ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
     page: Math.max(requestedPage ?? 1, 1),
   }
 
@@ -210,30 +206,24 @@ export async function getCodeforcesProblems(filters = {}) {
   }
 
   const query = buildProblemCacheQuery(normalizedFilters)
-  const skip = (normalizedFilters.page - 1) * normalizedFilters.limit
-  const [cachedMetadata, totalMatched, cachedProblems] = await Promise.all([
-    CodeforcesProblemCache.findOne().sort({ syncedAt: -1 }).lean(),
+  const skip = (normalizedFilters.page - 1) * PROBLEM_PAGE_SIZE
+  const [totalMatched, cachedProblems] = await Promise.all([
     CodeforcesProblemCache.countDocuments(query),
     CodeforcesProblemCache.find(query)
       .sort({ contestId: -1, problemIndex: -1 })
       .skip(skip)
-      .limit(normalizedFilters.limit)
+      .limit(PROBLEM_PAGE_SIZE)
       .lean(),
   ])
-  const totalPages = Math.max(Math.ceil(totalMatched / normalizedFilters.limit), 1)
+  const totalPages = Math.max(Math.ceil(totalMatched / PROBLEM_PAGE_SIZE), 1)
 
   return {
-    source: 'Codeforces',
-    cachedAt: cachedMetadata
-      ? dateToIsoDate(cachedMetadata.syncedAt)
-      : null,
     count: cachedProblems.length,
     totalMatched,
     page: normalizedFilters.page,
     totalPages,
     hasPreviousPage: normalizedFilters.page > 1,
     hasNextPage: normalizedFilters.page < totalPages,
-    filters: normalizedFilters,
     problems: cachedProblems.map(formatCachedProblem),
   }
 }
@@ -342,16 +332,11 @@ function summarizeSubmissions(submissions) {
   }
 }
 
-async function fetchLiveCodeforcesSubmissions(handle, options = {}) {
-  const requestedCount = parseInteger(options.count)
-  const count = Math.min(
-    Math.max(requestedCount ?? DEFAULT_SUBMISSION_COUNT, 1),
-    MAX_SUBMISSION_COUNT,
-  )
+async function fetchLiveCodeforcesSubmissions(handle) {
   const submissions = await callCodeforces('user.status', {
     handle,
     from: 1,
-    count,
+    count: SUBMISSION_COUNT,
   })
 
   const normalizedSubmissions = submissions
@@ -360,10 +345,7 @@ async function fetchLiveCodeforcesSubmissions(handle, options = {}) {
     )
     .map(normalizeSubmission)
 
-  return {
-    ...summarizeSubmissions(normalizedSubmissions),
-    recentSubmissions: normalizedSubmissions.slice(0, 25),
-  }
+  return summarizeSubmissions(normalizedSubmissions)
 }
 
 function buildAttemptStatusLookup(submissionSummary) {
@@ -377,23 +359,6 @@ function buildAttemptStatusLookup(submissionSummary) {
   })
 
   return statuses
-}
-
-function buildActivityByDate(submissionSummary, recentSubmissions) {
-  if (Object.keys(submissionSummary.activityByDate ?? {}).length > 0) {
-    return submissionSummary.activityByDate
-  }
-
-  return recentSubmissions.reduce((days, submission) => {
-    const date = submission.submittedAt?.slice(0, 10)
-    if (!date) return days
-
-    const day = days[date] ?? { submissions: 0, accepted: 0 }
-    day.submissions += 1
-    if (submission.verdict === 'OK') day.accepted += 1
-    days[date] = day
-    return days
-  }, {})
 }
 
 function dateKey(date) {
@@ -488,7 +453,7 @@ function getActivityMetrics(activityByDate) {
 }
 
 // Shapes submission analytics so React only has to render the returned values.
-function buildDashboardInsights(submissionSummary, recentSubmissions) {
+function buildDashboardInsights(submissionSummary) {
   const topicData = Object.entries(submissionSummary.solvedByTag ?? {})
     .sort(([, first], [, second]) => second - first)
     .slice(0, 10)
@@ -508,10 +473,7 @@ function buildDashboardInsights(submissionSummary, recentSubmissions) {
     (best, item) => item.solved > (best?.solved ?? -1) ? item : best,
     null,
   )
-  const activityByDate = buildActivityByDate(
-    submissionSummary,
-    recentSubmissions,
-  )
+  const activityByDate = submissionSummary.activityByDate ?? {}
 
   return {
     solveRate: submissionSummary.attemptedCount
@@ -532,30 +494,30 @@ function buildDashboardInsights(submissionSummary, recentSubmissions) {
 
 function formatUserSnapshot(snapshot) {
   const submissionSummary = snapshot.submissionSummary
-  const recentSubmissions = snapshot.recentSubmissions ?? []
+  const publicSummary = {
+    totalSubmissions: submissionSummary.totalSubmissions,
+    solvedCount: submissionSummary.solvedCount,
+    attemptedCount: submissionSummary.attemptedCount,
+    unsolvedAttemptedCount: submissionSummary.unsolvedAttemptedCount,
+  }
 
   return {
-    source: 'Codeforces',
     handle: snapshot.profile.handle,
     syncedAt: dateToIsoDate(snapshot.syncedAt),
     profile: snapshot.profile,
-    submissionSummary,
-    recentSubmissions,
+    submissionSummary: publicSummary,
     attemptStatusByProblem: buildAttemptStatusLookup(submissionSummary),
     attemptStatusDefault: 'Unattempted',
-    insights: buildDashboardInsights(submissionSummary, recentSubmissions),
+    insights: buildDashboardInsights(submissionSummary),
   }
 }
 
-export async function refreshCodeforcesUserSnapshot(handle, options = {}) {
+export async function refreshCodeforcesUserSnapshot(handle) {
   const normalizedHandle = normalizeHandle(handle)
   const profile = await fetchLiveCodeforcesProfile(normalizedHandle)
-  const submissions = await fetchLiveCodeforcesSubmissions(
-    normalizedHandle,
-    options,
-  )
+  const submissionSummary =
+    await fetchLiveCodeforcesSubmissions(normalizedHandle)
   const syncedAt = new Date()
-  const { recentSubmissions, ...submissionSummary } = submissions
 
   const snapshot = await CodeforcesUserSnapshot.findOneAndUpdate(
     { handle: normalizedHandle },
@@ -564,7 +526,6 @@ export async function refreshCodeforcesUserSnapshot(handle, options = {}) {
         handle: normalizedHandle,
         profile,
         submissionSummary,
-        recentSubmissions,
         syncedAt,
       },
     },
@@ -574,7 +535,7 @@ export async function refreshCodeforcesUserSnapshot(handle, options = {}) {
   return formatUserSnapshot(snapshot)
 }
 
-export async function getCodeforcesUserSnapshot(handle, options = {}) {
+export async function getCodeforcesUserSnapshot(handle) {
   const normalizedHandle = normalizeHandle(handle)
   const snapshot = await CodeforcesUserSnapshot.findOne({
     handle: normalizedHandle,
@@ -584,5 +545,5 @@ export async function getCodeforcesUserSnapshot(handle, options = {}) {
     return formatUserSnapshot(snapshot)
   }
 
-  return refreshCodeforcesUserSnapshot(normalizedHandle, options)
+  return refreshCodeforcesUserSnapshot(normalizedHandle)
 }

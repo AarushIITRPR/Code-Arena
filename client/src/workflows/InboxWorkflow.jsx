@@ -42,7 +42,7 @@ export default function InboxWorkflow({
         </div>
       </section>
 
-      <div className="task-list">
+        <div className="task-list">
         {problems.map((problem) => (
           <article className="task-row" key={problem.id}>
             <button

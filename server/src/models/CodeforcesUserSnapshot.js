@@ -17,10 +17,6 @@ const codeforcesUserSnapshotSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       required: true,
     },
-    recentSubmissions: {
-      type: [mongoose.Schema.Types.Mixed],
-      default: [],
-    },
     syncedAt: {
       type: Date,
       required: true,

@@ -22,10 +22,10 @@ function sendApiError(response, error, fallbackMessage, defaultStatus = 502) {
 
 async function sendDashboard(request, response, refresh = false) {
   try {
-    const handle = request.params.handle ?? request.query.handle
+    const handle = request.query.handle
     const data = refresh
-      ? await refreshCodeforcesUserSnapshot(handle, request.query)
-      : await getCodeforcesUserSnapshot(handle, request.query)
+      ? await refreshCodeforcesUserSnapshot(handle)
+      : await getCodeforcesUserSnapshot(handle)
     response.json(data)
   } catch (error) {
     sendApiError(
@@ -69,21 +69,11 @@ app.post('/api/codeforces/problems/refresh', async (request, response) => {
   }
 })
 
-// Query-based aliases let the backend validate even an empty handle.
 app.get('/api/codeforces/dashboard', async (request, response) => {
   await sendDashboard(request, response)
 })
 
 app.post('/api/codeforces/dashboard/refresh', async (request, response) => {
-  await sendDashboard(request, response, true)
-})
-
-// Existing path-based routes remain available for API compatibility.
-app.get('/api/codeforces/dashboard/:handle', async (request, response) => {
-  await sendDashboard(request, response)
-})
-
-app.post('/api/codeforces/dashboard/:handle/refresh', async (request, response) => {
   await sendDashboard(request, response, true)
 })
 

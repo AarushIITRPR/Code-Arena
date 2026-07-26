@@ -5,7 +5,6 @@ import { apiRequest } from '../lib'
 /* oxlint-disable react/only-export-components */
 
 const EMPTY_TRACKER = {
-  problems: [],
   inboxProblems: [],
   revisionProblems: [],
   summary: { inbox: 0, revision: 0, solved: 0, lowConfidence: 0 },
@@ -20,16 +19,15 @@ const EMPTY_TRACKER = {
 
 export function useTrackingWorkflow(dashboard) {
   const [data, setData] = useState(EMPTY_TRACKER)
-  const [state, setState] = useState({ loading: true, error: '' })
+  const [state, setState] = useState({ error: '' })
   const [savingId, setSavingId] = useState('')
 
   async function loadProblems() {
-    setState({ loading: true, error: '' })
+    setState({ error: '' })
     try {
       setData(await apiRequest('/api/problems'))
-      setState({ loading: false, error: '' })
     } catch (error) {
-      setState({ loading: false, error: error.message })
+      setState({ error: error.message })
     }
   }
 
@@ -42,7 +40,7 @@ export function useTrackingWorkflow(dashboard) {
       })
       await loadProblems()
     } catch (error) {
-      setState({ loading: false, error: error.message })
+      setState({ error: error.message })
     } finally {
       setSavingId('')
     }
@@ -57,7 +55,7 @@ export function useTrackingWorkflow(dashboard) {
       })
       await loadProblems()
     } catch (error) {
-      setState({ loading: false, error: error.message })
+      setState({ error: error.message })
     } finally {
       setSavingId('')
     }
@@ -69,7 +67,7 @@ export function useTrackingWorkflow(dashboard) {
       await apiRequest(`/api/problems/${problemId}`, { method: 'DELETE' })
       await loadProblems()
     } catch (error) {
-      setState({ loading: false, error: error.message })
+      setState({ error: error.message })
     } finally {
       setSavingId('')
     }

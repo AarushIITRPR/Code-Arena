@@ -16,7 +16,7 @@ export function useProfileWorkflow() {
 
     try {
       const suffix = refresh ? '/refresh' : ''
-      const params = new URLSearchParams({ handle, count: '1000' })
+      const params = new URLSearchParams({ handle })
       const data = await apiRequest(
         `/api/codeforces/dashboard${suffix}?${params}`,
         { method: refresh ? 'POST' : 'GET' },

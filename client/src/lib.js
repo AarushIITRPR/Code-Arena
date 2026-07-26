@@ -2,7 +2,6 @@ export const DEFAULT_HANDLE =
   localStorage.getItem('codearena:handle') || 'tourist'
 
 export const VIEWS = ['inbox', 'discovery', 'insights', 'revision']
-export const PAGE_SIZE = 39
 export const CODEFORCES_TAGS = [
   'implementation',
   'math',
